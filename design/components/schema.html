@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnapVector schema bridge</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>Design ↔ CLI JSON 對照表</h1>
+        <p>左側畫布上的每個 annotation 都以編號釘對應右側 <code>--inject-svg</code> payload，凸顯「UI 即 schema」的設計主線。</p>
+      </header>
+
+      <section class="schema-split">
+        <div class="schema-canvas" aria-label="annotated canvas">
+          <article class="mock-window large" style="inset: 70px 70px auto; height: 320px;" aria-hidden="true">
+            <div class="content-lines">
+              <span style="width: 82%"></span>
+              <span style="width: 96%"></span>
+              <span style="width: 72%"></span>
+              <span style="width: 88%"></span>
+              <span style="width: 64%"></span>
+            </div>
+          </article>
+
+          <svg class="symbol-layer" viewBox="0 0 760 560" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <style>
+                .sv-red { fill: #e53935; stroke: #ffffff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; paint-order: stroke fill; }
+                .sv-stroke { fill: none; stroke: #e53935; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+                .sv-outline { fill: none; stroke: #ffffff; stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+              </style>
+
+              <symbol id="annotation-arrow" viewBox="0 0 240 120">
+                <g transform="translate(10 10)">
+                  <path class="sv-outline" d="M10 95 C70 92 124 72 178 28" />
+                  <path class="sv-stroke" d="M10 95 C70 92 124 72 178 28" />
+                  <path class="sv-red" d="M172 10 L220 24 L183 62 Z" />
+                </g>
+              </symbol>
+              <symbol id="annotation-rectangle" viewBox="0 0 220 140">
+                <rect x="14" y="14" width="192" height="112" rx="18" class="sv-outline" />
+                <rect x="14" y="14" width="192" height="112" rx="18" class="sv-stroke" />
+              </symbol>
+              <symbol id="annotation-ellipse" viewBox="0 0 220 140">
+                <ellipse cx="110" cy="70" rx="92" ry="52" class="sv-outline" />
+                <ellipse cx="110" cy="70" rx="92" ry="52" class="sv-stroke" />
+              </symbol>
+            </defs>
+
+            <use href="#annotation-arrow" x="60" y="100" width="240" height="120" />
+            <use href="#annotation-rectangle" x="320" y="80" width="220" height="140" />
+            <use href="#annotation-ellipse" x="500" y="260" width="220" height="140" />
+          </svg>
+
+          <div class="text-card solid" style="left: 110px; top: 300px;">流程卡住</div>
+
+          <!-- Schema pins -->
+          <span class="schema-pin" style="left: 300px; top: 108px;">1</span>
+          <span class="schema-pin" style="left: 540px; top: 90px;">2</span>
+          <span class="schema-pin" style="left: 720px; top: 270px;">3</span>
+          <span class="schema-pin" style="left: 130px; top: 288px;">4</span>
+        </div>
+
+        <aside class="schema-card" aria-label="canonical inject-svg payload">
+          <h2>canonical <code>--inject-svg</code> payload</h2>
+<pre>[
+  <span style="color:#fbbf24;">/* pin 1 */</span>
+  { "id": "ann-arrow-1", "type": "arrow",
+    "x1": 60,  "y1": 220,
+    "x2": 300, "y2": 100 },
+
+  <span style="color:#fbbf24;">/* pin 2 */</span>
+  { "id": "ann-rect-1", "type": "rectangle",
+    "x": 320, "y": 80,
+    "width": 220, "height": 140 },
+
+  <span style="color:#fbbf24;">/* pin 3 */</span>
+  { "id": "ann-ellipse-1", "type": "ellipse",
+    "x": 500, "y": 260,
+    "width": 220, "height": 140 },
+
+  <span style="color:#fbbf24;">/* pin 4 */</span>
+  { "id": "ann-text-1", "type": "text",
+    "x": 110, "y": 300,
+    "text": "流程卡住",
+    "variant": "solid",
+    "fontSize": 22,
+    "maxWidth": 220 }
+]</pre>
+        </aside>
+      </section>
+
+      <section class="schema-caption">
+        規則：座標原點為擷取底圖左上角；單位皆為像素；所有欄位名稱由根 PRD §2.4 canonical schema 定義，三軌實作不得自行改動。
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="1200" height="1200">
   <title>SnapVector baseline symbols</title>
-  <desc>Skitch-style annotation symbol library for qt, tauri, and wails implementations.</desc>
+  <desc>Skitch-style annotation library, selection chrome, and tool icons. Single source of truth for qt, tauri, and wails tracks.</desc>
   <defs>
     <style>
       .sv-red {
@@ -34,8 +34,36 @@
         font-family: -apple-system, BlinkMacSystemFont, "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
         font-weight: 800;
       }
+
+      .sv-icon {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .sv-handle {
+        fill: #ffffff;
+        stroke: #e53935;
+        stroke-width: 2;
+      }
+
+      .sv-marquee {
+        fill: none;
+        stroke: #e53935;
+        stroke-width: 2;
+        stroke-dasharray: 6 4;
+      }
+
+      .sv-label {
+        font-family: -apple-system, BlinkMacSystemFont, "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        font-size: 18px;
+        fill: #475467;
+      }
     </style>
 
+    <!-- Annotation symbols (canonical §2.4 types) -->
     <symbol id="annotation-arrow" viewBox="0 0 240 120">
       <g transform="translate(10 10)">
         <path class="sv-outline" d="M10 95 C70 92 124 72 178 28" />
@@ -64,38 +92,144 @@
       <rect x="8" y="8" width="244" height="76" rx="18" fill="none" stroke="#e53935" stroke-width="8" />
       <text x="26" y="56" class="sv-text" fill="#e53935" font-size="30">請看這裡</text>
     </symbol>
+
+    <!-- Selection chrome (UI-only; not part of exported SVG) -->
+    <symbol id="selection-frame" viewBox="0 0 240 160">
+      <rect x="4" y="4" width="232" height="152" class="sv-marquee" rx="10" />
+      <rect x="-4" y="-4" width="12" height="12" class="sv-handle" rx="2" />
+      <rect x="114" y="-4" width="12" height="12" class="sv-handle" rx="2" />
+      <rect x="232" y="-4" width="12" height="12" class="sv-handle" rx="2" />
+      <rect x="-4" y="74" width="12" height="12" class="sv-handle" rx="2" />
+      <rect x="232" y="74" width="12" height="12" class="sv-handle" rx="2" />
+      <rect x="-4" y="152" width="12" height="12" class="sv-handle" rx="2" />
+      <rect x="114" y="152" width="12" height="12" class="sv-handle" rx="2" />
+      <rect x="232" y="152" width="12" height="12" class="sv-handle" rx="2" />
+    </symbol>
+
+    <!-- Tool icons (24x24 baseline) -->
+    <symbol id="icon-select" viewBox="0 0 24 24">
+      <path class="sv-icon" d="M5 3l14 9-7 1-1 7-6-17z" />
+    </symbol>
+
+    <symbol id="icon-arrow" viewBox="0 0 24 24">
+      <path class="sv-icon" d="M5 19c5 0 11-4 14-14" />
+      <path class="sv-icon" d="M13 5h6v6" />
+    </symbol>
+
+    <symbol id="icon-rectangle" viewBox="0 0 24 24">
+      <rect class="sv-icon" x="4" y="6" width="16" height="12" rx="2.5" />
+    </symbol>
+
+    <symbol id="icon-ellipse" viewBox="0 0 24 24">
+      <ellipse class="sv-icon" cx="12" cy="12" rx="8" ry="6" />
+    </symbol>
+
+    <symbol id="icon-text" viewBox="0 0 24 24">
+      <path class="sv-icon" d="M5 6h14" />
+      <path class="sv-icon" d="M12 6v13" />
+    </symbol>
+
+    <symbol id="icon-crop" viewBox="0 0 24 24">
+      <path class="sv-icon" d="M7 3v14h14" />
+      <path class="sv-icon" d="M3 7h14v14" />
+    </symbol>
+
+    <symbol id="icon-undo" viewBox="0 0 24 24">
+      <path class="sv-icon" d="M4 10h11a5 5 0 015 5v1" />
+      <path class="sv-icon" d="M9 5l-5 5 5 5" />
+    </symbol>
+
+    <symbol id="icon-redo" viewBox="0 0 24 24">
+      <path class="sv-icon" d="M20 10H9a5 5 0 00-5 5v1" />
+      <path class="sv-icon" d="M15 5l5 5-5 5" />
+    </symbol>
+
+    <symbol id="icon-copy" viewBox="0 0 24 24">
+      <rect class="sv-icon" x="8" y="8" width="12" height="12" rx="2" />
+      <path class="sv-icon" d="M4 16V6a2 2 0 012-2h10" />
+    </symbol>
+
+    <symbol id="icon-download" viewBox="0 0 24 24">
+      <path class="sv-icon" d="M12 4v12" />
+      <path class="sv-icon" d="M7 11l5 5 5-5" />
+      <path class="sv-icon" d="M4 20h16" />
+    </symbol>
+
+    <symbol id="icon-capture" viewBox="0 0 24 24">
+      <rect class="sv-icon" x="3" y="6" width="18" height="13" rx="2" />
+      <circle class="sv-icon" cx="12" cy="12.5" r="3.5" />
+      <path class="sv-icon" d="M8 6l2-2h4l2 2" />
+    </symbol>
   </defs>
 
-  <rect width="1200" height="720" fill="#f8fafc" />
-  <text x="40" y="62" fill="#101828" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="34" font-weight="800">
+  <rect width="1200" height="1200" fill="#f8fafc" />
+
+  <text x="40" y="62" fill="#101828" class="sv-label" font-size="34" font-weight="800">
     SnapVector symbol baseline
   </text>
-  <text x="40" y="100" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">
-    Geometry, stroke, and color source-of-truth for all three implementation tracks.
+  <text x="40" y="96" class="sv-label">
+    Geometry, stroke, and colour source-of-truth for all three implementation tracks.
   </text>
 
-  <g transform="translate(60 150)">
+  <text x="40" y="138" class="sv-label" font-weight="800" fill="#101828">Annotation primitives</text>
+
+  <g transform="translate(60 160)">
     <use href="#annotation-arrow" width="240" height="120" />
-    <text x="0" y="148" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-arrow</text>
+    <text x="0" y="148" class="sv-label">annotation-arrow</text>
   </g>
 
-  <g transform="translate(360 140)">
+  <g transform="translate(360 150)">
     <use href="#annotation-rectangle" width="220" height="140" />
-    <text x="0" y="170" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-rectangle</text>
+    <text x="0" y="170" class="sv-label">annotation-rectangle</text>
   </g>
 
-  <g transform="translate(660 140)">
+  <g transform="translate(660 150)">
     <use href="#annotation-ellipse" width="220" height="140" />
-    <text x="0" y="170" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-ellipse</text>
+    <text x="0" y="170" class="sv-label">annotation-ellipse</text>
   </g>
 
-  <g transform="translate(60 410)">
+  <g transform="translate(60 350)">
     <use href="#annotation-text-solid" width="260" height="92" />
-    <text x="0" y="126" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-text-solid</text>
+    <text x="0" y="126" class="sv-label">annotation-text-solid</text>
   </g>
 
-  <g transform="translate(380 410)">
+  <g transform="translate(380 350)">
     <use href="#annotation-text-outline" width="260" height="92" />
-    <text x="0" y="126" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-text-outline</text>
+    <text x="0" y="126" class="sv-label">annotation-text-outline</text>
+  </g>
+
+  <g transform="translate(700 350)">
+    <use href="#selection-frame" width="240" height="160" />
+    <text x="0" y="184" class="sv-label">selection-frame (UI chrome)</text>
+  </g>
+
+  <text x="40" y="590" class="sv-label" font-weight="800" fill="#101828">Tool icons (24px baseline)</text>
+
+  <g transform="translate(60 620)" color="#101828">
+    <g transform="translate(0 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-select" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(72 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-arrow" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(144 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-rectangle" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(216 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-ellipse" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(288 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-text" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(360 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-crop" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(432 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-undo" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(504 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-redo" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(576 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-copy" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(648 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-download" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(720 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-capture" x="16" y="16" width="24" height="24" /></g>
+  </g>
+
+  <g transform="translate(60 700)" class="sv-label">
+    <text x="12" y="18">select</text>
+    <text x="80" y="18">arrow</text>
+    <text x="152" y="18">rect</text>
+    <text x="224" y="18">ellipse</text>
+    <text x="300" y="18">text</text>
+    <text x="370" y="18">crop</text>
+    <text x="442" y="18">undo</text>
+    <text x="514" y="18">redo</text>
+    <text x="586" y="18">copy</text>
+    <text x="652" y="18">export</text>
+    <text x="726" y="18">capture</text>
   </g>
 </svg>

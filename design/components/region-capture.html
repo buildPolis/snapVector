@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnapVector region capture</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>Region capture overlay</h1>
+        <p>全螢幕半透明遮罩、十字游標、尺寸徽章、8 個 resize handles。對應根 PRD §F1.1 區域擷取與 §P3 Linux 遮罩替代方案。</p>
+      </header>
+
+      <section class="region-stage" aria-label="region capture prototype">
+        <!-- Mock desktop background -->
+        <article class="mock-window large" style="inset: 60px 90px auto; height: 320px;" aria-hidden="true">
+          <div class="content-lines">
+            <span style="width: 82%"></span>
+            <span style="width: 96%"></span>
+            <span style="width: 72%"></span>
+            <span style="width: 88%"></span>
+            <span style="width: 64%"></span>
+            <span style="width: 92%"></span>
+          </div>
+        </article>
+        <article class="mock-window small" style="top: 420px; left: 92px; width: 420px; height: 230px;" aria-hidden="true">
+          <div class="content-lines">
+            <span style="width: 78%"></span>
+            <span style="width: 92%"></span>
+            <span style="width: 64%"></span>
+          </div>
+        </article>
+        <article class="mock-window small" style="top: 420px; right: 90px; left: auto; width: 340px; height: 230px;" aria-hidden="true">
+          <div class="content-lines">
+            <span style="width: 88%"></span>
+            <span style="width: 72%"></span>
+          </div>
+        </article>
+
+        <!-- Dimmed area outside selection -->
+        <div class="region-dim" aria-hidden="true"></div>
+
+        <!-- Active selection rectangle -->
+        <div class="region-selection" aria-label="selection 720×400 at (180,120)">
+          <span class="region-handle" style="left: 0; top: 0;"></span>
+          <span class="region-handle" style="left: 50%; top: 0;"></span>
+          <span class="region-handle" style="left: 100%; top: 0;"></span>
+          <span class="region-handle" style="left: 0; top: 50%;"></span>
+          <span class="region-handle" style="left: 100%; top: 50%;"></span>
+          <span class="region-handle" style="left: 0; top: 100%;"></span>
+          <span class="region-handle" style="left: 50%; top: 100%;"></span>
+          <span class="region-handle" style="left: 100%; top: 100%;"></span>
+        </div>
+
+        <div class="region-size-badge">
+          <strong>720 × 400</strong>
+          <span style="opacity: 0.6">·</span>
+          <span>x: 180, y: 120</span>
+        </div>
+
+        <div class="region-hint">
+          <span class="kbd">↵</span> 擷取
+          <span class="kbd">Esc</span> 取消
+          <span class="kbd">⌘</span><span class="kbd">A</span> 全螢幕
+          <span style="opacity: 0.6">·</span>
+          拖動邊角可調整；放開滑鼠確認區域。
+        </div>
+      </section>
+
+      <section class="schema-caption">
+        對應 CLI：擷取確認後等價於 <code>snapvector --capture --base64-stdout --region=180,120,720,400</code>，
+        JSON 輸出遵循根 PRD §2.4 canonical schema。
+      </section>
+    </main>
+  </body>
+</html>
