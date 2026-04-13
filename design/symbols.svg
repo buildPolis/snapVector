@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720">
+  <title>SnapVector baseline symbols</title>
+  <desc>Skitch-style annotation symbol library for qt, tauri, and wails implementations.</desc>
+  <defs>
+    <style>
+      .sv-red {
+        fill: #e53935;
+        stroke: #ffffff;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        paint-order: stroke fill;
+      }
+
+      .sv-stroke {
+        fill: none;
+        stroke: #e53935;
+        stroke-width: 10;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .sv-outline {
+        fill: none;
+        stroke: #ffffff;
+        stroke-width: 16;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .sv-text {
+        font-family: -apple-system, BlinkMacSystemFont, "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+        font-weight: 800;
+      }
+    </style>
+
+    <symbol id="annotation-arrow" viewBox="0 0 240 120">
+      <g transform="translate(10 10)">
+        <path class="sv-outline" d="M10 95 C70 92 124 72 178 28" />
+        <path class="sv-stroke" d="M10 95 C70 92 124 72 178 28" />
+        <path class="sv-red" d="M172 10 L220 24 L183 62 Z" />
+      </g>
+    </symbol>
+
+    <symbol id="annotation-rectangle" viewBox="0 0 220 140">
+      <rect x="14" y="14" width="192" height="112" rx="18" class="sv-outline" />
+      <rect x="14" y="14" width="192" height="112" rx="18" class="sv-stroke" />
+    </symbol>
+
+    <symbol id="annotation-ellipse" viewBox="0 0 220 140">
+      <ellipse cx="110" cy="70" rx="92" ry="52" class="sv-outline" />
+      <ellipse cx="110" cy="70" rx="92" ry="52" class="sv-stroke" />
+    </symbol>
+
+    <symbol id="annotation-text-solid" viewBox="0 0 260 92">
+      <rect x="8" y="8" width="244" height="76" rx="18" class="sv-red" />
+      <text x="26" y="56" class="sv-text" fill="#ffffff" font-size="30">重點區域</text>
+    </symbol>
+
+    <symbol id="annotation-text-outline" viewBox="0 0 260 92">
+      <rect x="8" y="8" width="244" height="76" rx="18" fill="#ffffff" stroke="#ffffff" stroke-width="3" />
+      <rect x="8" y="8" width="244" height="76" rx="18" fill="none" stroke="#e53935" stroke-width="8" />
+      <text x="26" y="56" class="sv-text" fill="#e53935" font-size="30">請看這裡</text>
+    </symbol>
+  </defs>
+
+  <rect width="1200" height="720" fill="#f8fafc" />
+  <text x="40" y="62" fill="#101828" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="34" font-weight="800">
+    SnapVector symbol baseline
+  </text>
+  <text x="40" y="100" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">
+    Geometry, stroke, and color source-of-truth for all three implementation tracks.
+  </text>
+
+  <g transform="translate(60 150)">
+    <use href="#annotation-arrow" width="240" height="120" />
+    <text x="0" y="148" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-arrow</text>
+  </g>
+
+  <g transform="translate(360 140)">
+    <use href="#annotation-rectangle" width="220" height="140" />
+    <text x="0" y="170" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-rectangle</text>
+  </g>
+
+  <g transform="translate(660 140)">
+    <use href="#annotation-ellipse" width="220" height="140" />
+    <text x="0" y="170" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-ellipse</text>
+  </g>
+
+  <g transform="translate(60 410)">
+    <use href="#annotation-text-solid" width="260" height="92" />
+    <text x="0" y="126" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-text-solid</text>
+  </g>
+
+  <g transform="translate(380 410)">
+    <use href="#annotation-text-outline" width="260" height="92" />
+    <text x="0" y="126" fill="#475467" font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans CJK TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif" font-size="18">annotation-text-outline</text>
+  </g>
+</svg>

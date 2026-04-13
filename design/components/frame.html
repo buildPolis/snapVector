@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnapVector frame components</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>Frame components</h1>
+        <p>矩形與橢圓外框的 baseline 幾何與描邊展示。</p>
+      </header>
+
+      <section class="component-grid">
+        <article class="component-card">
+          <h2>Rectangle</h2>
+          <p>圓角空心外框，紅線搭配白邊。</p>
+          <div class="component-stage">
+            <svg viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg" aria-label="rectangle example">
+              <rect x="60" y="56" width="300" height="188" rx="28" fill="none" stroke="#ffffff" stroke-width="16" />
+              <rect x="60" y="56" width="300" height="188" rx="28" fill="none" stroke="#e53935" stroke-width="10" />
+            </svg>
+          </div>
+        </article>
+
+        <article class="component-card">
+          <h2>Ellipse</h2>
+          <p>橢圓外框使用相同 stroke token，維持高辨識度。</p>
+          <div class="component-stage">
+            <svg viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg" aria-label="ellipse example">
+              <ellipse cx="210" cy="156" rx="142" ry="88" fill="none" stroke="#ffffff" stroke-width="16" />
+              <ellipse cx="210" cy="156" rx="142" ry="88" fill="none" stroke="#e53935" stroke-width="10" />
+            </svg>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

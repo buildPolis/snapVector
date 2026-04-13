@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnapVector text component</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>Text component + CJK input check</h1>
+        <p>用同一份字型 fallback 檢查繁中、日文、韓文輸入與版面穩定性。</p>
+      </header>
+
+      <section class="component-grid">
+        <article class="component-card">
+          <h2>Text variants</h2>
+          <p>紅底白字與紅邊白底兩種標註樣式。</p>
+          <div class="chip-row">
+            <span class="text-card solid">重點區域</span>
+            <span class="text-card outline">請看這裡</span>
+          </div>
+        </article>
+
+        <article class="component-card">
+          <h2>CJK input test</h2>
+          <p>實際輸入時應保持字型 fallback 與 spacing 穩定。</p>
+          <form class="text-demo">
+            <label>
+              繁體中文
+              <input type="text" value="請確認這個按鈕的標示文字" />
+            </label>
+            <label>
+              日本語
+              <input type="text" value="この領域を確認してください" />
+            </label>
+            <label>
+              한국어
+              <input type="text" value="이 영역을 다시 확인해 주세요" />
+            </label>
+            <label>
+              多行測試
+              <textarea>第一行：流程卡住
+第二行：請重新授權
+第三行：確認後再匯出</textarea>
+            </label>
+          </form>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

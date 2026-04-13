@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnapVector design baseline</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>SnapVector Skitch-style baseline</h1>
+        <p>供 qt / tauri / wails 三軌移植的純 HTML + CSS + SVG 視覺原型。</p>
+      </header>
+
+      <section class="canvas-shell" aria-label="main prototype canvas">
+        <div class="toolbar" aria-label="annotation toolbar">
+          <button type="button" class="toolbar-button is-active"><span class="toolbar-swatch"></span> Arrow</button>
+          <button type="button" class="toolbar-button">Rectangle</button>
+          <button type="button" class="toolbar-button">Ellipse</button>
+          <button type="button" class="toolbar-button">Text</button>
+          <button type="button" class="toolbar-button">Copy</button>
+          <button type="button" class="toolbar-button">Export SVG</button>
+        </div>
+
+        <div class="canvas">
+          <div class="overlay-grid" aria-hidden="true"></div>
+          <article class="mock-window large" aria-hidden="true">
+            <div class="content-lines">
+              <span style="width: 72%"></span>
+              <span style="width: 96%"></span>
+              <span style="width: 82%"></span>
+              <span style="width: 60%"></span>
+              <span style="width: 88%"></span>
+              <span style="width: 78%"></span>
+              <span style="width: 92%"></span>
+            </div>
+          </article>
+          <article class="mock-window small" aria-hidden="true">
+            <div class="content-lines">
+              <span style="width: 88%"></span>
+              <span style="width: 76%"></span>
+              <span style="width: 92%"></span>
+              <span style="width: 58%"></span>
+            </div>
+          </article>
+
+          <svg class="symbol-layer" viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg" aria-labelledby="prototype-title">
+            <title id="prototype-title">Skitch-style annotation sample</title>
+            <defs>
+              <style>
+                .sv-red {
+                  fill: #e53935;
+                  stroke: #ffffff;
+                  stroke-width: 3;
+                  stroke-linecap: round;
+                  stroke-linejoin: round;
+                  paint-order: stroke fill;
+                }
+
+                .sv-stroke {
+                  fill: none;
+                  stroke: #e53935;
+                  stroke-width: 10;
+                  stroke-linecap: round;
+                  stroke-linejoin: round;
+                  vector-effect: non-scaling-stroke;
+                }
+
+                .sv-outline {
+                  fill: none;
+                  stroke: #ffffff;
+                  stroke-width: 16;
+                  stroke-linecap: round;
+                  stroke-linejoin: round;
+                  vector-effect: non-scaling-stroke;
+                }
+              </style>
+
+              <symbol id="annotation-arrow" viewBox="0 0 240 120">
+                <g transform="translate(10 10)">
+                  <path class="sv-outline" d="M10 95 C70 92 124 72 178 28" />
+                  <path class="sv-stroke" d="M10 95 C70 92 124 72 178 28" />
+                  <path class="sv-red" d="M172 10 L220 24 L183 62 Z" />
+                </g>
+              </symbol>
+
+              <symbol id="annotation-rectangle" viewBox="0 0 220 140">
+                <rect x="14" y="14" width="192" height="112" rx="18" class="sv-outline" />
+                <rect x="14" y="14" width="192" height="112" rx="18" class="sv-stroke" />
+              </symbol>
+
+              <symbol id="annotation-ellipse" viewBox="0 0 220 140">
+                <ellipse cx="110" cy="70" rx="92" ry="52" class="sv-outline" />
+                <ellipse cx="110" cy="70" rx="92" ry="52" class="sv-stroke" />
+              </symbol>
+            </defs>
+
+            <use href="#annotation-arrow" x="92" y="110" width="240" height="120" />
+            <use href="#annotation-rectangle" x="348" y="84" width="220" height="140" />
+            <use href="#annotation-ellipse" x="690" y="92" width="220" height="140" />
+          </svg>
+
+          <div class="text-card solid" style="left: 156px; top: 290px;">流程卡住</div>
+          <div class="text-card outline" style="left: 690px; top: 296px;">這裡要修正</div>
+          <div class="annotation-note" style="left: 374px; top: 246px;">矩形外框</div>
+          <div class="annotation-note" style="left: 748px; top: 248px;">橢圓外框</div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
