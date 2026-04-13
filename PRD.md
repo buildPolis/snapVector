@@ -38,15 +38,17 @@
 
 ### 2.2 向量標註引擎 (Vector Annotation Engine)
 
-- **F2.1 Skitch 風格標註：** 內建帶有對比色白邊的粗線條紅色箭頭、幾何外框（矩形、橢圓）與文字方塊。
+- **F2.1 Skitch 風格標註：** 內建帶有對比色白邊的粗線條紅色箭頭、幾何外框（矩形、橢圓）、文字方塊，以及可遮蔽敏感資訊的區域 blur 標註。
 
 - **F2.2 獨立元件系統 (Symbols)：** 所有標註圖形在底層皆封裝為 SVG `<symbol>`，確保重複添加標註時檔案體積不會失控膨脹。
 
 - **F2.3 完美的中文輸入體驗：** 標註文字必須完美支援各平台的原生 CJK（中日韓）輸入法，無選字框飄移或漏字問題。
 
+- **F2.4 區域 blur 遮蔽：** 支援以圓角矩形框選敏感資訊後套用 blur，並可調整 blur 強度。該效果在 GUI 預覽、PNG 匯出、SVG 匯出、剪貼簿輸出與 CLI `--inject-svg` 注入時都必須保留一致語義。
+
 ### 2.3 檔案匯出與整合 (Export & Integration)
 
-- **F3.1 獨立 SVG 匯出：** 將截圖轉換為 Base64 字串，與向量標註群組 (`<g>`) 結合成單一 `.svg` 檔案，確保在任何離線環境或瀏覽器皆可完美無損渲染。
+- **F3.1 獨立 SVG 匯出：** 將截圖轉換為 Base64 字串，與向量標註群組 (`<g>`) 結合成單一 `.svg` 檔案，確保在任何離線環境或瀏覽器皆可完美無損渲染。若含 blur 區域，需以單一 SVG 內可離線渲染的方式表達（例如 clip + duplicate image + filter），不得依賴外部圖片或雲端服務。
 
 - **F3.2 點陣圖匯出：** 支援將標註後的畫面扁平化 (Flatten) 並匯出為常見的 `.png` 格式。
 
@@ -135,7 +137,7 @@
 
 | 欄位 | 型別 | 必填 | 說明 |
 |---|---|---|---|
-| `type` | string | 必填 | 僅允許 `"arrow"`、`"rectangle"`、`"ellipse"`、`"text"`。 |
+| `type` | string | 必填 | 僅允許 `"arrow"`、`"rectangle"`、`"ellipse"`、`"text"`、`"blur"`。 |
 | `id` | string | 選填 | 供呼叫端追蹤 annotation；若缺省由實作自行產生。 |
 | `strokeColor` | string | 選填 | 預設為 `#E53935`。 |
 | `outlineColor` | string | 選填 | 預設為 `#FFFFFF`。 |
@@ -149,6 +151,7 @@
 | `rectangle` | `x`, `y`, `width`, `height` | 空心外框。 |
 | `ellipse` | `x`, `y`, `width`, `height` | 以 bounding box 定義橢圓。 |
 | `text` | `x`, `y`, `text` | `x`,`y` 為文字方塊左上角。 |
+| `blur` | `x`, `y`, `width`, `height` | 以圓角矩形定義 blur 區域。 |
 
 `text` 額外欄位：
 
@@ -158,6 +161,14 @@
 | `variant` | string | 選填 | 僅允許 `"solid"` 或 `"outline"`，分別對應紅底白字與紅邊白底。 |
 | `fontSize` | number | 選填 | 預設依 baseline。 |
 | `maxWidth` | number | 選填 | 超出時可換行。 |
+
+`blur` 額外欄位：
+
+| 欄位 | 型別 | 必填 | 說明 |
+|---|---|---|---|
+| `blurRadius` | number | 選填 | blur 強度，預設依 baseline，建議預設為 `12`。 |
+| `cornerRadius` | number | 選填 | 圓角半徑，預設依 baseline，建議預設為 `18`。 |
+| `feather` | number | 選填 | 邊緣柔化量，若未提供則由實作採用與 `blurRadius` 相容的預設值。 |
 
 輸入範例：
 
@@ -188,6 +199,16 @@
     "height": 124
   },
   {
+    "id": "ann-blur-1",
+    "type": "blur",
+    "x": 850,
+    "y": 430,
+    "width": 196,
+    "height": 116,
+    "blurRadius": 12,
+    "cornerRadius": 18
+  },
+  {
     "id": "ann-text-1",
     "type": "text",
     "x": 140,
@@ -214,7 +235,8 @@
 
 1. 所有實作軌對同一份 `--inject-svg` payload 必須產生語義一致的結果。
 2. 若 annotation 欄位缺失或 `type` 非法，必須回傳 `status="error"` 與 `1300-1399` 區間錯誤碼，不得 silent fallback。
-3. GUI 匯出與 CLI `--inject-svg` 的向量幾何基準都必須對齊 `design/symbols.svg`。
+3. GUI 匯出與 CLI `--inject-svg` 的向量幾何基準都必須對齊 `design/symbols.svg`；`blur` 的幾何與預設值則對齊 design baseline 中的 blur region tokens。
+4. `blur` 不得退化為單純半透明遮罩；輸出結果必須保留實際可辨識的模糊效果。
 
 ---
 

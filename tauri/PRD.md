@@ -23,9 +23,10 @@
 - **Linux Wayland**：用 `ashpd` crate 包裝 XDG Desktop Portal `Screenshot` 介面，觸發系統原生權限授權；**不**自己手寫 D-Bus wire 協定。
 - **Linux X11** fallback：`xcap` 即可。
 
-### 向量標註（F2.1、F2.2、F2.3）
+### 向量標註（F2.1、F2.2、F2.3、F2.4）
 
 - 前端完全照 `../design/` 的 HTML/CSS/SVG 移植。
+- `blur` 區域由 Rust 或前端共用渲染層對底圖裁切後套用 blur；其預設 `blurRadius` / `cornerRadius` 必須對齊 `../design/` baseline。
 - SVG 合成可在前端或 Rust 端完成；傾向在 Rust 端完成以便 CLI 模式共用邏輯。
 - CJK 輸入由 WebKitGTK / WKWebView / WebView2 的原生 IME 支援處理。
 

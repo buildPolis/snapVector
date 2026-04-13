@@ -15,9 +15,10 @@
 
 | 檔案 | 用途 |
 |---|---|
-| `index.html` | 主畫面原型：假截圖底圖 + 標註工具列 + 四種標註示範（箭頭、矩形、橢圓、文字方塊）。 |
-| `symbols.svg` | SVG `<symbol>` 元件庫。定義紅色白邊箭頭、矩形、橢圓、文字方塊的幾何參數與配色，供三軌移植時直接引用或參照。 |
+| `index.html` | 主畫面原型：假截圖底圖 + 標註工具列 + 五種標註示範（箭頭、矩形、橢圓、文字方塊、blur 區域）。 |
+| `symbols.svg` | SVG `<symbol>` 元件庫。定義紅色白邊箭頭、矩形、橢圓、文字方塊、blur 區域 baseline 與工具圖示，供三軌移植時直接引用或參照。 |
 | `components/arrow.html` | 單獨展示箭頭元件（多角度、多長度測試）。 |
+| `components/blur.html` | blur 區域元件（不同強度與圓角半徑示範）。 |
 | `components/frame.html` | 矩形與橢圓外框。 |
 | `components/text.html` | 文字方塊與 CJK 輸入測試區（繁中、日文、韓文實測）。 |
 | `styles.css` | 共用樣式（配色 token、字型 fallback）。 |
@@ -28,6 +29,7 @@
 - **箭頭**：粗線條、箭頭尖端三角形，整體具白邊外描邊以保證在深色背景可辨識。
 - **幾何外框**：空心、粗紅線、白邊描邊。
 - **文字方塊**：紅底白字或紅邊白底兩款變體。
+- **blur 區域**：圓角矩形，預設 `cornerRadius: 18`、`blurRadius: 12`，需明顯表達「正在模糊底圖」而非單純半透明遮罩。
 - **字型 fallback**：`-apple-system, "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif`。
 
 ## 範圍外
@@ -41,4 +43,4 @@
 1. 在 Chrome、Safari、Firefox 三者開啟 `index.html`，視覺一致且接近 Evernote Skitch 的辨識度。
 2. `symbols.svg` 可獨立在瀏覽器開啟並正確渲染所有 `<symbol>`。
 3. `components/text.html` 可實際輸入繁體中文、日文、韓文，無排版跑版。
-4. 三軌（qt/tauri/wails）開發者依據 `symbols.svg` 的幾何參數即可完成該軌標註 UI，無需再反覆詢問配色或尺寸。
+4. 三軌（qt/tauri/wails）開發者依據 `symbols.svg` 與 `components/blur.html` 的幾何參數即可完成該軌標註 UI，無需再反覆詢問配色、blur 強度或尺寸。

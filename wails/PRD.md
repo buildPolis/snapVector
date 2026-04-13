@@ -25,9 +25,10 @@
 - **Linux Wayland**：`github.com/godbus/dbus/v5` 呼叫 XDG Desktop Portal `org.freedesktop.portal.Screenshot` 介面，觸發系統原生權限授權。
 - **Linux X11** fallback：`screenshot` crate 即可。
 
-### 向量標註（F2.1、F2.2、F2.3）
+### 向量標註（F2.1、F2.2、F2.3、F2.4）
 
 - 前端照 `../design/` 移植，SVG `<symbol>` 直接複用 `symbols.svg`。
+- `blur` 區域在 Go 端合成時需對底圖套用裁切 + blur filter，預設 `blurRadius` / `cornerRadius` 對齊 `../design/` baseline。
 - SVG 合成邏輯放在 Go 端（`svg_io.go`），確保 CLI `--inject-svg` 與 GUI 匯出走同一條路徑。
 - CJK 輸入交由 WebView2 / WKWebView / WebKitGTK 的原生 IME 處理。
 

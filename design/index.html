@@ -36,7 +36,7 @@
             <button type="button" class="tool-btn" title="Select (V)">
               <svg><use href="#icon-select" /></svg>
             </button>
-            <button type="button" class="tool-btn is-active" title="Arrow (A)">
+            <button type="button" class="tool-btn" title="Arrow (A)">
               <svg><use href="#icon-arrow" /></svg>
             </button>
             <button type="button" class="tool-btn" title="Rectangle (R)">
@@ -47,6 +47,9 @@
             </button>
             <button type="button" class="tool-btn" title="Text (T)">
               <svg><use href="#icon-text" /></svg>
+            </button>
+            <button type="button" class="tool-btn is-active" title="Blur (B)">
+              <svg><use href="#icon-blur" /></svg>
             </button>
             <div class="tool-rail-divider"></div>
             <button type="button" class="tool-btn" title="Crop (C)">
@@ -100,6 +103,9 @@
                   <span style="width: 58%"></span>
                 </div>
               </article>
+              <div class="blur-region" style="left: 850px; top: 430px; width: 196px; height: 116px;">
+                <span class="blur-pill">blur · radius 12</span>
+              </div>
 
               <!-- Symbol library inlined for offline portability -->
               <svg class="symbol-layer" viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg" aria-labelledby="prototype-title">
@@ -134,26 +140,23 @@
                 <use href="#annotation-rectangle" x="344" y="88" width="220" height="132" />
                 <use href="#annotation-ellipse" x="690" y="92" width="220" height="140" />
 
-                <!-- Selection frame around the rectangle annotation -->
-                <g transform="translate(336 82)">
-                  <rect width="236" height="144" rx="12" fill="none" stroke="#e53935" stroke-width="2" stroke-dasharray="6 4" />
-                  <g fill="#ffffff" stroke="#e53935" stroke-width="2">
-                    <rect x="-4" y="-4" width="10" height="10" rx="2" />
-                    <rect x="113" y="-4" width="10" height="10" rx="2" />
-                    <rect x="230" y="-4" width="10" height="10" rx="2" />
-                    <rect x="-4" y="67" width="10" height="10" rx="2" />
-                    <rect x="230" y="67" width="10" height="10" rx="2" />
-                    <rect x="-4" y="138" width="10" height="10" rx="2" />
-                    <rect x="113" y="138" width="10" height="10" rx="2" />
-                    <rect x="230" y="138" width="10" height="10" rx="2" />
-                  </g>
-                </g>
               </svg>
+              <div class="selection-box" style="left: 842px; top: 422px; width: 212px; height: 132px;">
+                <span class="selection-handle" style="left: 0; top: 0;"></span>
+                <span class="selection-handle" style="left: 50%; top: 0;"></span>
+                <span class="selection-handle" style="left: 100%; top: 0;"></span>
+                <span class="selection-handle" style="left: 0; top: 50%;"></span>
+                <span class="selection-handle" style="left: 100%; top: 50%;"></span>
+                <span class="selection-handle" style="left: 0; top: 100%;"></span>
+                <span class="selection-handle" style="left: 50%; top: 100%;"></span>
+                <span class="selection-handle" style="left: 100%; top: 100%;"></span>
+              </div>
 
               <div class="text-card solid" style="left: 156px; top: 290px;">流程卡住</div>
               <div class="text-card outline" style="left: 690px; top: 296px;">這裡要修正</div>
-              <div class="annotation-note" style="left: 374px; top: 246px;">rectangle · selected</div>
+              <div class="annotation-note" style="left: 374px; top: 246px;">rectangle</div>
               <div class="annotation-note" style="left: 748px; top: 248px;">ellipse</div>
+              <div class="annotation-note" style="left: 856px; top: 566px;">blur · selected</div>
             </div>
           </section>
 
@@ -167,37 +170,35 @@
               <section class="inspector-section">
                 <h3>Selected annotation</h3>
                 <div class="chip-row">
-                  <span class="chip">type · rectangle</span>
-                  <span class="chip">id · ann-rect-1</span>
+                  <span class="chip">type · blur</span>
+                  <span class="chip">id · ann-blur-1</span>
+                  <span class="chip">mode · gaussian</span>
                 </div>
               </section>
 
               <section class="inspector-section">
                 <h3>Geometry</h3>
                 <div class="field-grid">
-                  <div class="field"><label>X</label><input value="344" /></div>
-                  <div class="field"><label>Y</label><input value="88" /></div>
-                  <div class="field"><label>W</label><input value="220" /></div>
-                  <div class="field"><label>H</label><input value="132" /></div>
+                  <div class="field"><label>X</label><input value="850" /></div>
+                  <div class="field"><label>Y</label><input value="430" /></div>
+                  <div class="field"><label>W</label><input value="196" /></div>
+                  <div class="field"><label>H</label><input value="116" /></div>
                 </div>
               </section>
 
               <section class="inspector-section">
-                <h3>Stroke</h3>
+                <h3>Blur radius</h3>
                 <div class="stroke-range">
-                  <input type="range" min="2" max="20" value="10" />
-                  <span class="stroke-value">10</span>
+                  <input type="range" min="4" max="32" value="12" />
+                  <span class="stroke-value">12</span>
                 </div>
               </section>
 
               <section class="inspector-section">
-                <h3>Colour</h3>
-                <div class="swatch-row" role="radiogroup">
-                  <button class="swatch red is-active" aria-label="red"></button>
-                  <button class="swatch amber" aria-label="amber"></button>
-                  <button class="swatch teal" aria-label="teal"></button>
-                  <button class="swatch ink" aria-label="ink"></button>
-                  <button class="swatch white" aria-label="white"></button>
+                <h3>Region</h3>
+                <div class="field-grid">
+                  <div class="field"><label>Corner radius</label><input value="18" /></div>
+                  <div class="field"><label>Feather</label><input value="12" /></div>
                 </div>
               </section>
 
@@ -211,6 +212,9 @@
     <span class="tok-key">"x"</span><span class="tok-punc">:</span> <span class="tok-num">344</span><span class="tok-punc">,</span> <span class="tok-key">"y"</span><span class="tok-punc">:</span> <span class="tok-num">88</span><span class="tok-punc">,</span> <span class="tok-key">"width"</span><span class="tok-punc">:</span> <span class="tok-num">220</span><span class="tok-punc">,</span> <span class="tok-key">"height"</span><span class="tok-punc">:</span> <span class="tok-num">132</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
   <span class="tok-punc">{</span> <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"ann-ellipse-1"</span><span class="tok-punc">,</span> <span class="tok-key">"type"</span><span class="tok-punc">:</span> <span class="tok-str">"ellipse"</span><span class="tok-punc">,</span>
     <span class="tok-key">"x"</span><span class="tok-punc">:</span> <span class="tok-num">690</span><span class="tok-punc">,</span> <span class="tok-key">"y"</span><span class="tok-punc">:</span> <span class="tok-num">92</span><span class="tok-punc">,</span> <span class="tok-key">"width"</span><span class="tok-punc">:</span> <span class="tok-num">220</span><span class="tok-punc">,</span> <span class="tok-key">"height"</span><span class="tok-punc">:</span> <span class="tok-num">140</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
+  <span class="tok-punc">{</span> <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"ann-blur-1"</span><span class="tok-punc">,</span> <span class="tok-key">"type"</span><span class="tok-punc">:</span> <span class="tok-str">"blur"</span><span class="tok-punc">,</span>
+    <span class="tok-key">"x"</span><span class="tok-punc">:</span> <span class="tok-num">850</span><span class="tok-punc">,</span> <span class="tok-key">"y"</span><span class="tok-punc">:</span> <span class="tok-num">430</span><span class="tok-punc">,</span> <span class="tok-key">"width"</span><span class="tok-punc">:</span> <span class="tok-num">196</span><span class="tok-punc">,</span> <span class="tok-key">"height"</span><span class="tok-punc">:</span> <span class="tok-num">116</span><span class="tok-punc">,</span>
+    <span class="tok-key">"blurRadius"</span><span class="tok-punc">:</span> <span class="tok-num">12</span><span class="tok-punc">,</span> <span class="tok-key">"cornerRadius"</span><span class="tok-punc">:</span> <span class="tok-num">18</span> <span class="tok-punc">}</span><span class="tok-punc">,</span>
   <span class="tok-punc">{</span> <span class="tok-key">"id"</span><span class="tok-punc">:</span> <span class="tok-str">"ann-text-1"</span><span class="tok-punc">,</span> <span class="tok-key">"type"</span><span class="tok-punc">:</span> <span class="tok-str">"text"</span><span class="tok-punc">,</span>
     <span class="tok-key">"x"</span><span class="tok-punc">:</span> <span class="tok-num">156</span><span class="tok-punc">,</span> <span class="tok-key">"y"</span><span class="tok-punc">:</span> <span class="tok-num">290</span><span class="tok-punc">,</span> <span class="tok-key">"text"</span><span class="tok-punc">:</span> <span class="tok-str">"流程卡住"</span><span class="tok-punc">,</span>
     <span class="tok-key">"variant"</span><span class="tok-punc">:</span> <span class="tok-str">"solid"</span> <span class="tok-punc">}</span>
@@ -223,13 +227,13 @@
 
         <!-- ========== Status bar ========== -->
         <div class="status-bar" role="status">
-          <span><strong>x</strong> 454 &nbsp;·&nbsp; <strong>y</strong> 154</span>
+          <span><strong>x</strong> 948 &nbsp;·&nbsp; <strong>y</strong> 488</span>
           <span class="sep"></span>
           <span><strong>zoom</strong> 100%</span>
           <span class="sep"></span>
-          <span><strong>annotations</strong> 4</span>
+          <span><strong>annotations</strong> 5</span>
           <span class="sep"></span>
-          <span><strong>selected</strong> ann-rect-1</span>
+          <span><strong>selected</strong> ann-blur-1</span>
           <span class="sep"></span>
           <span style="margin-left:auto;"><strong>mode</strong> GUI · mirrors CLI <code>--inject-svg</code></span>
         </div>
@@ -256,6 +260,13 @@
           <symbol id="icon-text" viewBox="0 0 24 24">
             <g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
               <path d="M5 6h14" /><path d="M12 6v13" />
+            </g>
+          </symbol>
+          <symbol id="icon-blur" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="6" width="16" height="12" rx="3" />
+              <path d="M8 10c1.1-1 2.2-1 3.3 0s2.2 1 3.4 0 2.2-1 3.3 0" />
+              <path d="M8 14c1.1-1 2.2-1 3.3 0s2.2 1 3.4 0 2.2-1 3.3 0" />
             </g>
           </symbol>
           <symbol id="icon-crop" viewBox="0 0 24 24">

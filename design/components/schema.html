@@ -10,7 +10,7 @@
     <main class="page">
       <header class="header">
         <h1>Design ↔ CLI JSON 對照表</h1>
-        <p>左側畫布上的每個 annotation 都以編號釘對應右側 <code>--inject-svg</code> payload，凸顯「UI 即 schema」的設計主線。</p>
+        <p>左側畫布上的每個 annotation 都以編號釘對應右側 <code>--inject-svg</code> payload，凸顯「UI 即 schema」的設計主線，包含新加入的 blur 區域。</p>
       </header>
 
       <section class="schema-split">
@@ -54,6 +54,9 @@
             <use href="#annotation-rectangle" x="320" y="80" width="220" height="140" />
             <use href="#annotation-ellipse" x="500" y="260" width="220" height="140" />
           </svg>
+          <div class="blur-region" style="left: 370px; top: 170px; width: 168px; height: 104px;">
+            <span class="blur-pill">blur</span>
+          </div>
 
           <div class="text-card solid" style="left: 110px; top: 300px;">流程卡住</div>
 
@@ -62,6 +65,7 @@
           <span class="schema-pin" style="left: 540px; top: 90px;">2</span>
           <span class="schema-pin" style="left: 720px; top: 270px;">3</span>
           <span class="schema-pin" style="left: 130px; top: 288px;">4</span>
+          <span class="schema-pin" style="left: 520px; top: 176px;">5</span>
         </div>
 
         <aside class="schema-card" aria-label="canonical inject-svg payload">
@@ -88,13 +92,20 @@
     "text": "流程卡住",
     "variant": "solid",
     "fontSize": 22,
-    "maxWidth": 220 }
+    "maxWidth": 220 },
+
+  <span style="color:#fbbf24;">/* pin 5 */</span>
+  { "id": "ann-blur-1", "type": "blur",
+    "x": 370, "y": 170,
+    "width": 168, "height": 104,
+    "blurRadius": 12,
+    "cornerRadius": 18 }
 ]</pre>
         </aside>
       </section>
 
       <section class="schema-caption">
-        規則：座標原點為擷取底圖左上角；單位皆為像素；所有欄位名稱由根 PRD §2.4 canonical schema 定義，三軌實作不得自行改動。
+        規則：座標原點為擷取底圖左上角；單位皆為像素；所有欄位名稱由根 PRD §2.4 canonical schema 定義，三軌實作不得自行改動；blur 需保留實際模糊效果而非透明遮罩。
       </section>
     </main>
   </body>

@@ -93,6 +93,21 @@
       <text x="26" y="56" class="sv-text" fill="#e53935" font-size="30">請看這裡</text>
     </symbol>
 
+    <filter id="preview-blur">
+      <feGaussianBlur stdDeviation="4" />
+    </filter>
+
+    <symbol id="annotation-blur" viewBox="0 0 220 140">
+      <rect x="14" y="14" width="192" height="112" rx="18" fill="#ffffff" opacity="0.14" />
+      <g filter="url(#preview-blur)" opacity="0.72">
+        <rect x="36" y="42" width="140" height="16" rx="8" fill="#cbd5e1" />
+        <rect x="52" y="68" width="122" height="14" rx="7" fill="#e2e8f0" />
+        <rect x="40" y="90" width="96" height="14" rx="7" fill="#cbd5e1" />
+      </g>
+      <rect x="14" y="14" width="192" height="112" rx="18" fill="none" stroke="#ffffff" stroke-width="4" />
+      <rect x="14" y="14" width="192" height="112" rx="18" fill="none" stroke="#e53935" stroke-width="6" stroke-dasharray="10 6" />
+    </symbol>
+
     <!-- Selection chrome (UI-only; not part of exported SVG) -->
     <symbol id="selection-frame" viewBox="0 0 240 160">
       <rect x="4" y="4" width="232" height="152" class="sv-marquee" rx="10" />
@@ -127,6 +142,12 @@
     <symbol id="icon-text" viewBox="0 0 24 24">
       <path class="sv-icon" d="M5 6h14" />
       <path class="sv-icon" d="M12 6v13" />
+    </symbol>
+
+    <symbol id="icon-blur" viewBox="0 0 24 24">
+      <rect class="sv-icon" x="4" y="6" width="16" height="12" rx="3" />
+      <path class="sv-icon" d="M8 10c1.1-1 2.2-1 3.3 0s2.2 1 3.4 0 2.2-1 3.3 0" />
+      <path class="sv-icon" d="M8 14c1.1-1 2.2-1 3.3 0s2.2 1 3.4 0 2.2-1 3.3 0" />
     </symbol>
 
     <symbol id="icon-crop" viewBox="0 0 24 24">
@@ -188,6 +209,11 @@
     <text x="0" y="170" class="sv-label">annotation-ellipse</text>
   </g>
 
+  <g transform="translate(920 150)">
+    <use href="#annotation-blur" width="220" height="140" />
+    <text x="0" y="170" class="sv-label">annotation-blur</text>
+  </g>
+
   <g transform="translate(60 350)">
     <use href="#annotation-text-solid" width="260" height="92" />
     <text x="0" y="126" class="sv-label">annotation-text-solid</text>
@@ -211,12 +237,13 @@
     <g transform="translate(144 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-rectangle" x="16" y="16" width="24" height="24" /></g>
     <g transform="translate(216 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-ellipse" x="16" y="16" width="24" height="24" /></g>
     <g transform="translate(288 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-text" x="16" y="16" width="24" height="24" /></g>
-    <g transform="translate(360 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-crop" x="16" y="16" width="24" height="24" /></g>
-    <g transform="translate(432 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-undo" x="16" y="16" width="24" height="24" /></g>
-    <g transform="translate(504 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-redo" x="16" y="16" width="24" height="24" /></g>
-    <g transform="translate(576 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-copy" x="16" y="16" width="24" height="24" /></g>
-    <g transform="translate(648 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-download" x="16" y="16" width="24" height="24" /></g>
-    <g transform="translate(720 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-capture" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(360 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-blur" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(432 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-crop" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(504 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-undo" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(576 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-redo" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(648 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-copy" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(720 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-download" x="16" y="16" width="24" height="24" /></g>
+    <g transform="translate(792 0)"><rect width="56" height="56" rx="14" fill="#ffffff" stroke="#e5e7eb" /><use href="#icon-capture" x="16" y="16" width="24" height="24" /></g>
   </g>
 
   <g transform="translate(60 700)" class="sv-label">
@@ -225,11 +252,12 @@
     <text x="152" y="18">rect</text>
     <text x="224" y="18">ellipse</text>
     <text x="300" y="18">text</text>
-    <text x="370" y="18">crop</text>
-    <text x="442" y="18">undo</text>
-    <text x="514" y="18">redo</text>
-    <text x="586" y="18">copy</text>
-    <text x="652" y="18">export</text>
-    <text x="726" y="18">capture</text>
+    <text x="368" y="18">blur</text>
+    <text x="438" y="18">crop</text>
+    <text x="510" y="18">undo</text>
+    <text x="582" y="18">redo</text>
+    <text x="654" y="18">copy</text>
+    <text x="720" y="18">export</text>
+    <text x="794" y="18">capture</text>
   </g>
 </svg>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SnapVector blur component</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>Blur component</h1>
+        <p>以圓角矩形遮蔽敏感資訊；展示不同 blur 強度與圓角半徑的 baseline。</p>
+      </header>
+
+      <section class="component-card">
+        <div class="component-stage">
+          <article class="mock-window large" style="inset: 24px 24px auto; height: 260px;" aria-hidden="true">
+            <div class="content-lines">
+              <span style="width: 78%"></span>
+              <span style="width: 96%"></span>
+              <span style="width: 84%"></span>
+              <span style="width: 68%"></span>
+              <span style="width: 90%"></span>
+            </div>
+          </article>
+
+          <div class="blur-region" style="left: 72px; top: 98px; width: 176px; height: 96px; border-radius: 18px; backdrop-filter: blur(8px) saturate(0.9);">
+            <span class="blur-pill">radius 8</span>
+          </div>
+          <div class="blur-region" style="left: 268px; top: 126px; width: 188px; height: 108px; border-radius: 18px; backdrop-filter: blur(12px) saturate(0.88);">
+            <span class="blur-pill">radius 12</span>
+          </div>
+          <div class="blur-region" style="left: 472px; top: 82px; width: 196px; height: 116px; border-radius: 26px; backdrop-filter: blur(18px) saturate(0.82);">
+            <span class="blur-pill">radius 18 · rounded</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -18,9 +18,10 @@
 - 使用 `QScreen.grabWindow(0)` 擷取全螢幕，Qt 自動處理 Wayland 權限。
 - 區域擷取在 GUI 模式下透過全螢幕半透明遮罩 + 滑鼠拖曳實作。
 
-### 向量標註（F2.1、F2.2、F2.3）
+### 向量標註（F2.1、F2.2、F2.3、F2.4）
 
 - 使用 `QGraphicsScene` + `QGraphicsItem` 子類別實作箭頭、矩形、橢圓、文字方塊。
+- `blur` 區域以裁切底圖 + blur effect 的方式渲染，預設 `blurRadius` / `cornerRadius` 對齊 `../design/` baseline，而非退化成半透明遮罩。
 - 幾何參數與配色**照搬** `../design/symbols.svg`，不重新設計。
 - SVG 匯出：用 `QSvgGenerator` 將 scene 繪製到 SVG，結合底圖 Base64 合成單一檔案。
 - CJK 輸入：使用 `QLineEdit` / `QTextEdit` 原生元件，Qt 已內建處理各平台 IME。
