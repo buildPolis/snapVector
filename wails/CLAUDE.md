@@ -53,6 +53,14 @@ wails/
 - 每次 PR 合併前量測 `hyperfine` 的 CLI 冷啟動延遲，記錄於 commit message。
 - 回歸超過 10% 視為效能 bug，須回修。
 
+## Todo 工作法
+
+- `../plan/wails.md` 是 Wails 軌 roadmap，`../plan/todo.md` 是實作 checklist。
+- 開始做某個 phase 或子任務前，先更新 SQL `todos` 狀態為 `in_progress`；完成且驗證可用後，再改成 `done`。
+- 只有「程式已接線 + 測試或實際 CLI/GUI 路徑已跑通」才能勾選 `../plan/todo.md`。
+- 若某 phase 只有部分完成，不能整體標 done，必須把已完成與未完成項目拆開記錄。
+- 新功能若先完成 CLI 路徑，但 GUI、匯出、剪貼簿或跨平台尚未完成，文件上必須明寫目前覆蓋範圍，不可模糊帶過。
+
 ## 禁忌
 
 - 不要引入 cgo 依賴除非**非用不可**（每增加一項 cgo 依賴都會傷害跨平台打包與冷啟動）。
