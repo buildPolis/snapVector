@@ -6,7 +6,7 @@
       .sv-red {
         fill: #e53935;
         stroke: #ffffff;
-        stroke-width: 3;
+        stroke-width: 6;
         stroke-linecap: round;
         stroke-linejoin: round;
         paint-order: stroke fill;
@@ -65,11 +65,7 @@
 
     <!-- Annotation symbols (canonical §2.4 types) -->
     <symbol id="annotation-arrow" viewBox="0 0 240 120">
-      <g transform="translate(10 10)">
-        <path class="sv-outline" d="M10 95 C70 92 124 72 178 28" />
-        <path class="sv-stroke" d="M10 95 C70 92 124 72 178 28" />
-        <path class="sv-red" d="M172 10 L220 24 L183 62 Z" />
-      </g>
+      <polygon points="6,60 132,48 132,24 228,60 132,96 132,72" class="sv-red" />
     </symbol>
 
     <symbol id="annotation-rectangle" viewBox="0 0 220 140">

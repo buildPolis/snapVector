@@ -28,17 +28,13 @@
           <svg class="symbol-layer" viewBox="0 0 760 560" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <defs>
               <style>
-                .sv-red { fill: #e53935; stroke: #ffffff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; paint-order: stroke fill; }
+                .sv-red { fill: #e53935; stroke: #ffffff; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; paint-order: stroke fill; }
                 .sv-stroke { fill: none; stroke: #e53935; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
                 .sv-outline { fill: none; stroke: #ffffff; stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
               </style>
 
               <symbol id="annotation-arrow" viewBox="0 0 240 120">
-                <g transform="translate(10 10)">
-                  <path class="sv-outline" d="M10 95 C70 92 124 72 178 28" />
-                  <path class="sv-stroke" d="M10 95 C70 92 124 72 178 28" />
-                  <path class="sv-red" d="M172 10 L220 24 L183 62 Z" />
-                </g>
+                <polygon points="6,60 132,48 132,24 228,60 132,96 132,72" class="sv-red" />
               </symbol>
               <symbol id="annotation-rectangle" viewBox="0 0 220 140">
                 <rect x="14" y="14" width="192" height="112" rx="18" class="sv-outline" />
@@ -50,7 +46,7 @@
               </symbol>
             </defs>
 
-            <use href="#annotation-arrow" x="60" y="100" width="240" height="120" />
+            <use href="#annotation-arrow" x="44" y="122" width="240" height="120" transform="rotate(-28 164 182)" />
             <use href="#annotation-rectangle" x="320" y="80" width="220" height="140" />
             <use href="#annotation-ellipse" x="500" y="260" width="220" height="140" />
           </svg>

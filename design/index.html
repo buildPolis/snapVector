@@ -112,17 +112,13 @@
                 <title id="prototype-title">Skitch-style annotation sample</title>
                 <defs>
                   <style>
-                    .sv-red { fill: #e53935; stroke: #ffffff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; paint-order: stroke fill; }
+                    .sv-red { fill: #e53935; stroke: #ffffff; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; paint-order: stroke fill; }
                     .sv-stroke { fill: none; stroke: #e53935; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
                     .sv-outline { fill: none; stroke: #ffffff; stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
                   </style>
 
                   <symbol id="annotation-arrow" viewBox="0 0 240 120">
-                    <g transform="translate(10 10)">
-                      <path class="sv-outline" d="M10 95 C70 92 124 72 178 28" />
-                      <path class="sv-stroke" d="M10 95 C70 92 124 72 178 28" />
-                      <path class="sv-red" d="M172 10 L220 24 L183 62 Z" />
-                    </g>
+                    <polygon points="6,60 132,48 132,24 228,60 132,96 132,72" class="sv-red" />
                   </symbol>
 
                   <symbol id="annotation-rectangle" viewBox="0 0 220 140">
@@ -136,7 +132,7 @@
                   </symbol>
                 </defs>
 
-                <use href="#annotation-arrow" x="92" y="110" width="240" height="120" />
+                <use href="#annotation-arrow" x="82" y="138" width="240" height="120" transform="rotate(-63 202 198)" />
                 <use href="#annotation-rectangle" x="344" y="88" width="220" height="132" />
                 <use href="#annotation-ellipse" x="690" y="92" width="220" height="140" />
 
