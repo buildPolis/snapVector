@@ -30,6 +30,7 @@
 - 前端照 `../design/` 移植，SVG `<symbol>` 直接複用 `symbols.svg`。
 - `blur` 區域在 Go 端合成時需對底圖套用裁切 + blur filter，預設 `blurRadius` / `cornerRadius` 對齊 `../design/` baseline。
 - SVG 合成邏輯放在 Go 端（`svg_io.go`），確保 CLI `--inject-svg` 與 GUI 匯出走同一條路徑。
+- SVG 匯出必須可在 Inkscape 開啟、編輯、另存且主要視覺不走樣；PNG / JPG / PDF 皆由同一合成結果導出，其中 JPG 以白底扁平化，PDF 為單頁分享用輸出。
 - CJK 輸入交由 WebView2 / WKWebView / WebKitGTK 的原生 IME 處理。
 
 ### 雙模式（F4.1）
@@ -71,8 +72,9 @@ func main() {
 
 ## 驗收標準
 
-1. 三平台 GUI 模式可擷取、標註、匯出 SVG 與 PNG。
+1. 三平台 GUI 模式可擷取、標註、匯出 SVG、PNG、JPG 與 PDF。
 2. Debian Wayland 首次啟動可觸發 XDG Portal 權限彈窗，授權後穩定截圖。
 3. Claude Code 能透過 `--capture --base64-stdout` 與 `--inject-svg` 成功執行端到端視覺任務。
 4. Linux AppImage 在乾淨 Debian 容器中可直接執行。
 5. CLI 冷啟動延遲實測符合 < 100 ms 目標。
+6. SVG 匯出可在 Inkscape 開啟、編輯、另存且主要視覺不走樣；JPG 為白底扁平化；PDF 為單頁分享用文件。

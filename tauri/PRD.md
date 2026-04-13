@@ -28,6 +28,7 @@
 - 前端完全照 `../design/` 的 HTML/CSS/SVG 移植。
 - `blur` 區域由 Rust 或前端共用渲染層對底圖裁切後套用 blur；其預設 `blurRadius` / `cornerRadius` 必須對齊 `../design/` baseline。
 - SVG 合成可在前端或 Rust 端完成；傾向在 Rust 端完成以便 CLI 模式共用邏輯。
+- SVG 輸出必須可在 Inkscape 開啟、編輯、另存且主要視覺不走樣；PNG / JPG / PDF 皆由同一合成結果導出，其中 JPG 以白底扁平化，PDF 為單頁分享用輸出。
 - CJK 輸入由 WebKitGTK / WKWebView / WebView2 的原生 IME 支援處理。
 
 ### 雙模式（F4.1）
@@ -72,7 +73,8 @@ fn main() {
 
 ## 驗收標準
 
-1. 三平台 GUI 模式可擷取、標註、匯出 SVG 與 PNG。
+1. 三平台 GUI 模式可擷取、標註、匯出 SVG、PNG、JPG 與 PDF。
 2. Debian Wayland 首次啟動能觸發 XDG Portal 權限彈窗，授權後穩定截圖。
 3. CLI `--capture --base64-stdout` 回應延遲 < 100 ms（冷啟動，根 PRD §3）。
 4. Linux AppImage 在未預裝 webkit2gtk 的乾淨 Debian 容器中可直接執行。
+5. SVG 匯出可在 Inkscape 開啟、編輯、另存且主要視覺不走樣。

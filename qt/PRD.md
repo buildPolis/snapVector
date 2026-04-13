@@ -23,7 +23,8 @@
 - 使用 `QGraphicsScene` + `QGraphicsItem` 子類別實作箭頭、矩形、橢圓、文字方塊。
 - `blur` 區域以裁切底圖 + blur effect 的方式渲染，預設 `blurRadius` / `cornerRadius` 對齊 `../design/` baseline，而非退化成半透明遮罩。
 - 幾何參數與配色**照搬** `../design/symbols.svg`，不重新設計。
-- SVG 匯出：用 `QSvgGenerator` 將 scene 繪製到 SVG，結合底圖 Base64 合成單一檔案。
+- SVG 匯出：用 `QSvgGenerator` 將 scene 繪製到 SVG，結合底圖 Base64 合成單一檔案，並確保輸出可在 Inkscape 開啟、編輯、另存且主要視覺不走樣。
+- PNG / JPG / PDF 匯出：由同一份 scene 合成結果導出；其中 JPG 一律以白色背景扁平化，PDF 為單頁分享用輸出且允許扁平化。
 - CJK 輸入：使用 `QLineEdit` / `QTextEdit` 原生元件，Qt 已內建處理各平台 IME。
 
 ### 雙模式（F4.1）
@@ -59,7 +60,8 @@ def main():
 
 ## 驗收標準
 
-1. 三平台（Windows、macOS、Debian Wayland）GUI 模式可擷取、標註、匯出 SVG 與 PNG。
+1. 三平台（Windows、macOS、Debian Wayland）GUI 模式可擷取、標註、匯出 SVG、PNG、JPG 與 PDF。
 2. Debian Wayland 下 CLI 截圖**無需額外設定**即可成功（Qt 原生支援的關鍵驗證）。
 3. CLI `--capture --base64-stdout` 的 JSON 輸出可被 jq 解析且 Base64 可還原為合法 PNG。
 4. `--inject-svg` 接受的 JSON schema 與 wails/tauri 兩軌**完全一致**，且以根 `../PRD.md` §2.4 的 canonical schema 為唯一依據。
+5. GUI 匯出的 SVG 可在 Inkscape 開啟、編輯、另存且主要視覺不走樣；JPG 透明區域以白底輸出；PDF 為單頁分享用文件。

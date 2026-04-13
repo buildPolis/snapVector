@@ -14,7 +14,7 @@
 
 ### 1.1 產品定位
 
-一款主打「輕量、極速、零依賴」的桌面端截圖與標註軟體。具備**雙模式運行能力**：既提供一般大眾直覺的 GUI 操作介面，能使用高辨識度向量標註（Skitch 風格）並匯出單一 SVG 檔案；同時提供強大的 Headless CLI 介面，能作為 Claude Code、Gemini CLI 等 AI 自主開發代理 (Autonomous Agents) 的「視覺外掛工具」。
+一款主打「輕量、極速、零依賴」的桌面端截圖與標註軟體。具備**雙模式運行能力**：既提供一般大眾直覺的 GUI 操作介面，能使用高辨識度向量標註（Skitch 風格）並匯出相容 Inkscape 的單一 SVG，以及常見分享格式 PNG、JPG、PDF；同時提供強大的 Headless CLI 介面，能作為 Claude Code、Gemini CLI 等 AI 自主開發代理 (Autonomous Agents) 的「視覺外掛工具」。
 
 ### 1.2 目標受眾 (Target Audience)
 
@@ -38,21 +38,25 @@
 
 ### 2.2 向量標註引擎 (Vector Annotation Engine)
 
-- **F2.1 Skitch 風格標註：** 內建帶有對比色白邊的粗線條紅色箭頭、幾何外框（矩形、橢圓）、文字方塊，以及可遮蔽敏感資訊的區域 blur 標註。
+- **F2.1 Skitch 風格標註：** 內建帶有對比色白邊的粗線條紅色**直線箭頭**、幾何外框（矩形、橢圓）、文字方塊，以及可遮蔽敏感資訊的區域 blur 標註。箭頭頭部需為對稱三角形，不使用彎曲箭身。
 
-- **F2.2 獨立元件系統 (Symbols)：** 所有標註圖形在底層皆封裝為 SVG `<symbol>`，確保重複添加標註時檔案體積不會失控膨脹。
+- **F2.2 獨立元件系統 (Symbols)：** 所有標註圖形在底層皆封裝為 SVG `<symbol>`，確保重複添加標註時檔案體積不會失控膨脹，且輸出的 SVG 結構在 Inkscape 中仍可被開啟、識別與編輯。
 
 - **F2.3 完美的中文輸入體驗：** 標註文字必須完美支援各平台的原生 CJK（中日韓）輸入法，無選字框飄移或漏字問題。
 
-- **F2.4 區域 blur 遮蔽：** 支援以圓角矩形框選敏感資訊後套用 blur，並可調整 blur 強度。該效果在 GUI 預覽、PNG 匯出、SVG 匯出、剪貼簿輸出與 CLI `--inject-svg` 注入時都必須保留一致語義。
+- **F2.4 區域 blur 遮蔽：** 支援以圓角矩形框選敏感資訊後套用 blur，並可調整 blur 強度。該效果在 GUI 預覽、PNG 匯出、JPG 匯出、PDF 匯出、SVG 匯出、剪貼簿輸出與 CLI `--inject-svg` 注入時都必須保留一致語義。
+
+- **F2.5 直接操控調整：** GUI 模式下，箭頭以**滑鼠左鍵拖拉**建立，並可透過拖拉端點或 bounding handles 調整方向、長度與位置；其幾何對應 CLI `--inject-svg` 的 `x1`, `y1`, `x2`, `y2`。
 
 ### 2.3 檔案匯出與整合 (Export & Integration)
 
-- **F3.1 獨立 SVG 匯出：** 將截圖轉換為 Base64 字串，與向量標註群組 (`<g>`) 結合成單一 `.svg` 檔案，確保在任何離線環境或瀏覽器皆可完美無損渲染。若含 blur 區域，需以單一 SVG 內可離線渲染的方式表達（例如 clip + duplicate image + filter），不得依賴外部圖片或雲端服務。
+- **F3.1 獨立 SVG 匯出：** 將截圖轉換為 Base64 字串，與向量標註群組 (`<g>`) 結合成單一 `.svg` 檔案，確保在任何離線環境或瀏覽器皆可完美無損渲染。輸出的 SVG 必須可在 Inkscape 中成功**開啟、編輯、另存**，且主要視覺不走樣。若含 blur 區域，需以單一 SVG 內可離線渲染的方式表達（例如 clip + duplicate image + filter），不得依賴外部圖片或雲端服務。
 
-- **F3.2 點陣圖匯出：** 支援將標註後的畫面扁平化 (Flatten) 並匯出為常見的 `.png` 格式。
+- **F3.2 點陣圖匯出：** 支援將標註後的畫面扁平化 (Flatten) 並匯出為常見的 `.png` 與 `.jpg` 格式。PNG 匯出需保留 alpha；JPG 匯出因格式限制，透明區域一律以白色背景扁平化。
 
-- **F3.3 剪貼簿整合：** 標註完成後，可直接將結果複製到系統剪貼簿，方便貼入通訊軟體或文件中。
+- **F3.3 PDF 匯出：** 支援將標註後的畫面輸出為單頁分享用 `.pdf` 文件。PDF 允許扁平化輸出，但內容視覺結果必須與 GUI 預覽一致，不要求保留可編輯向量或文字語義。
+
+- **F3.4 剪貼簿整合：** 標註完成後，可直接將結果複製到系統剪貼簿，方便貼入通訊軟體或文件中。
 
 ### 2.4 AI 代理 CLI 整合介面 (Agent-Ready CLI)
 
@@ -237,6 +241,8 @@
 2. 若 annotation 欄位缺失或 `type` 非法，必須回傳 `status="error"` 與 `1300-1399` 區間錯誤碼，不得 silent fallback。
 3. GUI 匯出與 CLI `--inject-svg` 的向量幾何基準都必須對齊 `design/symbols.svg`；`blur` 的幾何與預設值則對齊 design baseline 中的 blur region tokens。
 4. `blur` 不得退化為單純半透明遮罩；輸出結果必須保留實際可辨識的模糊效果。
+5. SVG 匯出不得依賴外部 CSS、外部字型檔、script 或 `foreignObject` 才能完成主要渲染；需優先使用 SVG 原生元素、presentation attributes 與可離線內嵌資產，以提高 Inkscape round-trip 相容性。
+6. JPG 與 PDF 匯出可扁平化，但輸出前的合成結果在幾何位置、標註顏色與 blur 區域語義上必須與 SVG / GUI 預覽對齊。
 
 ---
 
@@ -246,7 +252,7 @@
 
 - **大眾化安裝 (Distribution)：** 必須提供大眾友善的安裝包。Windows (`.exe`)、macOS (`.dmg`)、Debian (`.AppImage` 或 Flatpak)。禁止要求使用者開啟終端機安裝依賴套件。
 
-- **離線與隱私 (Local-First)：** 所有截圖、Base64 轉換與 SVG 生成必須 100% 在本地端完成，無需依賴任何雲端服務。
+- **離線與隱私 (Local-First)：** 所有截圖、Base64 轉換與 SVG / PNG / JPG / PDF 生成必須 100% 在本地端完成，無需依賴任何雲端服務。
 
 ---
 
@@ -305,13 +311,13 @@
 
 - 完成前端 Web 向量標註工具列 (箭頭、方框、文字)。
 
-- 實作 LLM `--inject-svg` 注入標註並合成單一 SVG 檔案的後端邏輯。
+- 實作 LLM `--inject-svg` 注入標註並合成單一 SVG 檔案的後端邏輯，並確保其匯出的 SVG 可在 Inkscape round-trip。
 
 - 完成系統常駐列 (System Tray) 與全域快捷鍵綁定。
 
 ### Phase 3: 封測與發佈 (Beta & Release) - [預估時程：2-3 週]
 
-- 使用 `electron-builder` 或類似工具打包 Windows `.exe`、macOS `.dmg` 與 Linux `.AppImage`。
+- 使用 `electron-builder` 或類似工具打包 Windows `.exe`、macOS `.dmg` 與 Linux `.AppImage`，並驗證 SVG、PNG、JPG、PDF 匯出結果。
 
 - 在 BuildPolis 內部與特定測試群體進行跨平台穩定度測試，並邀請 AI 開發代理 (如 Claude Code) 進行實際 API 串接測試。
 
