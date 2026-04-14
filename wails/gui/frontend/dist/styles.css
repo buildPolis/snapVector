@@ -514,6 +514,14 @@ body {
   z-index: 4;
 }
 
+/* Arrow selection relies on the two endpoint handles alone; the bounding-box
+   dashed frame is visual noise because arrows are never axis-aligned. */
+.selection-box[data-type="arrow"] {
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
 .selection-box.is-hidden,
 .is-hidden {
   display: none !important;
