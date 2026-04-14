@@ -75,3 +75,7 @@ test("isRecordableMainKey rejects modifier-only and bare control keys", () => {
   assert.equal(isRecordableMainKey(ev("Enter", { metaKey: true })), true);
   assert.equal(isRecordableMainKey(ev("v")), true);
 });
+
+test("isRecordableMainKey rejects '+' to avoid split ambiguity", () => {
+  assert.equal(isRecordableMainKey(ev("+", { metaKey: true, shiftKey: true })), false);
+});

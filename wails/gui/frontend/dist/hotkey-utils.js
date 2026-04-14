@@ -77,6 +77,7 @@
     if (!key || key === "meta" || key === "control" || key === "alt" || key === "shift") {
       return false;
     }
+    if (key === "+") return false; // "+" is the combo separator; can't bind it
     const hasMod = event.metaKey || event.ctrlKey || event.altKey || event.shiftKey;
     if (isControlKey(key) && !hasMod) return false;
     return true;
