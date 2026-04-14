@@ -1372,8 +1372,10 @@ function isTypingTarget(target) {
 }
 
 function onGlobalKeydown(event) {
+  if (typeof SV_Hotkey === "undefined" || !SV_Hotkey.normalize) return;
   if (hotkeys.suspended) return;
   if (event.isComposing) return;
+  if (event.repeat) return;
   if (isTypingTarget(event.target)) return;
   const combo = SV_Hotkey.normalize(event, IS_MAC);
   if (!combo) return;
