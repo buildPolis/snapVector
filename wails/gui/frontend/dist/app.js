@@ -34,6 +34,14 @@ const state = {
   },
 };
 
+const IS_MAC = /mac|iphone|ipad|ipod/i.test(navigator.platform);
+
+const hotkeys = {
+  bindings: [],              // Array<{action, combo, scope}>
+  comboToAction: new Map(),  // combo → action
+  suspended: false,          // true while modal is recording
+};
+
 const els = {
   captureTitle: document.getElementById("captureTitle"),
   fileMenuButton: document.getElementById("fileMenuButton"),
@@ -83,6 +91,8 @@ const backend = createBackend();
 
 async function init() {
   bindUI();
+  await loadHotkeys();
+  window.addEventListener("keydown", onGlobalKeydown);
   // No auto-capture: the hide/show dance in the Go capture path would flash
   // the window right after it first appears. Let the user click a capture
   // button when they're ready.
@@ -1171,11 +1181,15 @@ function createBackend() {
       saveDocumentAs: (suggestedName, contents) => window.go.gui.App.SaveDocumentAs(suggestedName, contents),
       exportDocument: (payload, captureBase64, width, height, format, copy) =>
         window.go.gui.App.ExportDocument(payload, captureBase64, width, height, format, copy),
+      getHotkeys: () => window.go.gui.App.GetHotkeys(),
+      saveHotkeys: (bindings) => window.go.gui.App.SaveHotkeys(bindings),
+      resetHotkeys: () => window.go.gui.App.ResetHotkeys(),
     };
   }
 
   const mockDocuments = new Map();
   let mockCounter = 1;
+  let mockHotkeys = [];
 
   return {
     async captureScreen() {
@@ -1216,6 +1230,16 @@ function createBackend() {
         svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`,
         base64: captureBase64,
       };
+    },
+    async getHotkeys() {
+      return mockHotkeys.length ? mockHotkeys.slice() : defaultHotkeyBindings();
+    },
+    async saveHotkeys(bindings) {
+      mockHotkeys = bindings.slice();
+    },
+    async resetHotkeys() {
+      mockHotkeys = [];
+      return defaultHotkeyBindings();
     },
   };
 }
@@ -1263,4 +1287,105 @@ function round(value) {
 function numberValue(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function hotkeyActions() {
+  return {
+    "tool.select":          () => setTool("select"),
+    "tool.arrow":           () => setTool("arrow"),
+    "tool.rectangle":       () => setTool("rectangle"),
+    "tool.ellipse":         () => setTool("ellipse"),
+    "tool.text":            () => setTool("text"),
+    "tool.blur":            () => setTool("blur"),
+    "tool.crop":            () => setTool("crop"),
+    "edit.undo":            () => undo(),
+    "edit.redo":            () => redo(),
+    "file.open":            () => openDocument(),
+    "file.save":            () => saveDocument(),
+    "file.saveAs":          () => saveDocumentAs(),
+    "view.zoomIn":          () => changeZoom(0.1),
+    "view.zoomOut":         () => changeZoom(-0.1),
+    "view.zoomReset":       () => {
+      state.zoom = 1;
+      state.zoomAutoFit = false;
+      state.pan = { x: 0, y: 0 };
+      render();
+    },
+    "export.copy":          () => exportCurrent(true),
+    "capture.fullscreen":   () => captureScreen("fullscreen"),
+    "capture.region":       () => captureScreen("region"),
+    "capture.allDisplays":  () => captureScreen("all-displays"),
+    "app.preferences":      () => openPreferences(),
+  };
+}
+
+async function loadHotkeys() {
+  try {
+    const bindings = await backend.getHotkeys();
+    applyHotkeyBindings(bindings);
+  } catch (err) {
+    console.warn("loadHotkeys failed, falling back to defaults:", err);
+    applyHotkeyBindings(defaultHotkeyBindings());
+  }
+}
+
+function applyHotkeyBindings(bindings) {
+  hotkeys.bindings = bindings.slice();
+  hotkeys.comboToAction = new Map();
+  for (const b of bindings) {
+    if (b.combo) hotkeys.comboToAction.set(b.combo, b.action);
+  }
+}
+
+function defaultHotkeyBindings() {
+  // Mirrors gui/hotkey.go DefaultHotkeys(). Used only when backend is absent
+  // (e.g. the mock path when running pure HTML). Keep in sync manually.
+  return [
+    { action: "tool.select", combo: "v", scope: "app" },
+    { action: "tool.arrow", combo: "a", scope: "app" },
+    { action: "tool.rectangle", combo: "r", scope: "app" },
+    { action: "tool.ellipse", combo: "o", scope: "app" },
+    { action: "tool.text", combo: "t", scope: "app" },
+    { action: "tool.blur", combo: "b", scope: "app" },
+    { action: "tool.crop", combo: "c", scope: "app" },
+    { action: "edit.undo", combo: "mod+z", scope: "app" },
+    { action: "edit.redo", combo: "mod+shift+z", scope: "app" },
+    { action: "file.open", combo: "mod+o", scope: "app" },
+    { action: "file.save", combo: "mod+s", scope: "app" },
+    { action: "file.saveAs", combo: "mod+shift+s", scope: "app" },
+    { action: "view.zoomIn", combo: "mod+=", scope: "app" },
+    { action: "view.zoomOut", combo: "mod+-", scope: "app" },
+    { action: "view.zoomReset", combo: "mod+0", scope: "app" },
+    { action: "export.copy", combo: "mod+shift+c", scope: "app" },
+    { action: "capture.fullscreen", combo: "mod+shift+q", scope: "app" },
+    { action: "capture.region", combo: "mod+shift+w", scope: "app" },
+    { action: "capture.allDisplays", combo: "mod+shift+e", scope: "app" },
+    { action: "app.preferences", combo: "mod+,", scope: "app" },
+  ];
+}
+
+function isTypingTarget(target) {
+  if (!target) return false;
+  if (target.isContentEditable) return true;
+  const tag = (target.tagName || "").toUpperCase();
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+function onGlobalKeydown(event) {
+  if (hotkeys.suspended) return;
+  if (event.isComposing) return;
+  if (isTypingTarget(event.target)) return;
+  const combo = SV_Hotkey.normalize(event, IS_MAC);
+  if (!combo) return;
+  const action = hotkeys.comboToAction.get(combo);
+  if (!action) return;
+  const handler = hotkeyActions()[action];
+  if (!handler) return;
+  event.preventDefault();
+  handler();
+}
+
+function openPreferences() {
+  const modal = document.getElementById("preferencesModal");
+  if (modal) modal.classList.remove("is-hidden");
 }
