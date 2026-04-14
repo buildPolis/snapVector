@@ -1,0 +1,15 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "snapvector",
+  "outputfilename": "snapvector",
+  "frontend:dir": "gui/frontend",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "http://127.0.0.1:5173",
+  "assetdir": "gui/frontend/dist",
+  "author": {
+    "name": "",
+    "email": ""
+  }
+}

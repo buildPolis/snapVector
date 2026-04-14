@@ -1,0 +1,12 @@
+{
+  "name": "snapvector-wails-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite dist --host 127.0.0.1 --strictPort --port 5173",
+    "build": "node -e \"console.log('SnapVector uses static assets from gui/frontend/dist')\""
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}
