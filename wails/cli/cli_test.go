@@ -24,6 +24,10 @@ func (f fakeCapturer) CaptureFullScreen(context.Context) (capture.PNG, capture.M
 	return f.png, f.meta, f.err
 }
 
+func (f fakeCapturer) CaptureAllDisplays(context.Context) (capture.PNG, capture.Meta, error) {
+	return f.png, f.meta, f.err
+}
+
 func (f fakeCapturer) CaptureInteractiveRegion(context.Context) (capture.PNG, capture.Meta, error) {
 	return f.png, f.meta, f.err
 }

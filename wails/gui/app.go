@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"snapvector/annotation"
 	"snapvector/capture"
 	"snapvector/clipboarddoc"
@@ -19,6 +21,10 @@ type App struct {
 	newCapturer     func() capture.Capturer
 	convertExporter func(context.Context, string, string) ([]byte, string, error)
 	writeClipboard  func(context.Context, []byte, string) error
+	hideWindow      func(context.Context)
+	showWindow      func(context.Context)
+	preCaptureDelay time.Duration
+	postCaptureHold time.Duration
 }
 
 type CaptureResult struct {
@@ -45,6 +51,10 @@ func NewApp() *App {
 		newCapturer:     capture.NewPlatformCapturer,
 		convertExporter: exportdoc.Convert,
 		writeClipboard:  clipboarddoc.Write,
+		hideWindow:      wailsruntime.WindowHide,
+		showWindow:      wailsruntime.WindowShow,
+		preCaptureDelay: 250 * time.Millisecond,
+		postCaptureHold: 120 * time.Millisecond,
 	}
 }
 
@@ -62,9 +72,27 @@ func (a *App) CaptureRegion() (*CaptureResult, error) {
 	return a.captureWith(a.newCapturer().CaptureInteractiveRegion)
 }
 
+func (a *App) CaptureAllDisplays() (*CaptureResult, error) {
+	return a.captureWith(a.newCapturer().CaptureAllDisplays)
+}
+
+// captureWith drops the Wails window out of the way so the OS capture UI
+// (e.g. screencapture -i -s crosshair) can own focus and so the app itself
+// isn't photographed, then runs the actual capture.
 func (a *App) captureWith(run func(context.Context) (capture.PNG, capture.Meta, error)) (*CaptureResult, error) {
 	ctx, cancel := a.captureContext()
 	defer cancel()
+
+	if a.ctx != nil && a.hideWindow != nil {
+		a.hideWindow(a.ctx)
+		a.waitOrCancel(ctx, a.preCaptureDelay)
+		if a.showWindow != nil {
+			defer func() {
+				a.waitOrCancel(context.Background(), a.postCaptureHold)
+				a.showWindow(a.ctx)
+			}()
+		}
+	}
 
 	raw, meta, err := run(ctx)
 	if err != nil {
@@ -154,12 +182,26 @@ func (a *App) ExportDocument(payload string, captureBase64 string, width int, he
 	return result, nil
 }
 
+func (a *App) waitOrCancel(ctx context.Context, d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+	case <-ctx.Done():
+	}
+}
+
 func (a *App) captureContext() (context.Context, context.CancelFunc) {
 	base := a.ctx
 	if base == nil {
 		base = context.Background()
 	}
-	return context.WithTimeout(base, 15*time.Second)
+	// 60s gives interactive region capture room for the user to look around
+	// and drag. Non-interactive paths still finish in well under a second.
+	return context.WithTimeout(base, 60*time.Second)
 }
 
 func displayData(meta capture.Meta) map[string]any {

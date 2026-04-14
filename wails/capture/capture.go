@@ -15,6 +15,7 @@ type Meta struct {
 
 type Capturer interface {
 	CaptureFullScreen(ctx context.Context) (PNG, Meta, error)
+	CaptureAllDisplays(ctx context.Context) (PNG, Meta, error)
 	CaptureInteractiveRegion(ctx context.Context) (PNG, Meta, error)
 }
 

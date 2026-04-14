@@ -10,10 +10,12 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func NewPlatformCapturer() Capturer { return darwinCapturer{} }
@@ -22,10 +24,23 @@ type darwinCapturer struct{}
 
 func (darwinCapturer) CaptureFullScreen(ctx context.Context) (PNG, Meta, error) {
 	displays, err := listDarwinDisplays(ctx)
-	if err == nil && len(displays) > 1 {
-		return captureAllDisplays(ctx, displays)
+	if err == nil {
+		if display, ok := displayUnderCursor(displays); ok {
+			return captureDisplay(ctx, display)
+		}
+		if len(displays) > 1 {
+			return captureAllDisplays(ctx, displays)
+		}
 	}
 	return captureWithArgs(ctx, fullScreenCaptureArgs()...)
+}
+
+func (darwinCapturer) CaptureAllDisplays(ctx context.Context) (PNG, Meta, error) {
+	displays, err := listDarwinDisplays(ctx)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+	return captureAllDisplays(ctx, displays)
 }
 
 func (darwinCapturer) CaptureInteractiveRegion(ctx context.Context) (PNG, Meta, error) {
@@ -37,16 +52,19 @@ func fullScreenCaptureArgs() []string {
 }
 
 func interactiveRegionCaptureArgs() []string {
-	return []string{"-i", "-x", "-t", "png"}
+	// -s forces selection-only mode so a stray click can't fall into window
+	// capture (which would otherwise grab the Wails app itself).
+	return []string{"-i", "-s", "-x", "-t", "png"}
 }
 
 type darwinDisplay struct {
-	Index       int     `json:"index"`
-	X           int     `json:"x"`
-	Y           int     `json:"y"`
-	Width       int     `json:"width"`
-	Height      int     `json:"height"`
-	ScaleFactor float64 `json:"scaleFactor"`
+	Index          int     `json:"index"`
+	X              int     `json:"x"`
+	Y              int     `json:"y"`
+	Width          int     `json:"width"`
+	Height         int     `json:"height"`
+	ScaleFactor    float64 `json:"scaleFactor"`
+	ContainsCursor bool    `json:"containsCursor"`
 }
 
 type displayCapture struct {
@@ -67,8 +85,13 @@ func captureWithArgs(ctx context.Context, args ...string) (PNG, Meta, error) {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-		return nil, Meta{}, classifyDarwinError(err, stderr.String())
+	started := time.Now()
+	runErr := cmd.Run()
+	elapsed := time.Since(started)
+	log.Printf("snapvector capture: screencapture %v -> elapsed=%s stderr=%q err=%v",
+		args, elapsed.Round(time.Millisecond), strings.TrimSpace(stderr.String()), runErr)
+	if runErr != nil {
+		return nil, Meta{}, classifyDarwinError(runErr, stderr.String())
 	}
 
 	raw, err := os.ReadFile(path)
@@ -138,6 +161,43 @@ func captureAllDisplays(ctx context.Context, displays []darwinDisplay) (PNG, Met
 	}
 
 	return composeDisplayCaptures(captures)
+}
+
+func captureDisplay(ctx context.Context, display darwinDisplay) (PNG, Meta, error) {
+	tempDir, err := os.MkdirTemp("", "snapvector-capture-*")
+	if err != nil {
+		return nil, Meta{}, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	path := filepath.Join(tempDir, fmt.Sprintf("display-%d.png", display.Index))
+	cmd := exec.CommandContext(ctx, "/usr/sbin/screencapture", "-x", "-t", "png", "-D", fmt.Sprintf("%d", display.Index), path)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, Meta{}, classifyDarwinError(err, stderr.String())
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, Meta{}, fmt.Errorf("read display capture: %w", err)
+	}
+	cfg, err := png.DecodeConfig(bytes.NewReader(raw))
+	if err != nil {
+		return nil, Meta{}, fmt.Errorf("decode display capture png: %w", err)
+	}
+
+	display.Width = cfg.Width
+	display.Height = cfg.Height
+	return PNG(raw), Meta{
+		DisplayID:   fmt.Sprintf("%d", display.Index),
+		X:           display.X,
+		Y:           display.Y,
+		Width:       display.Width,
+		Height:      display.Height,
+		ScaleFactor: display.ScaleFactor,
+	}, nil
 }
 
 func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
@@ -216,9 +276,19 @@ func listDarwinDisplays(ctx context.Context) ([]darwinDisplay, error) {
 	return displays, nil
 }
 
+func displayUnderCursor(displays []darwinDisplay) (darwinDisplay, bool) {
+	for _, display := range displays {
+		if display.ContainsCursor {
+			return display, true
+		}
+	}
+	return darwinDisplay{}, false
+}
+
 const swiftDisplayProbe = `import AppKit
 import Foundation
 
+let cursor = NSEvent.mouseLocation
 let screens = NSScreen.screens.enumerated().map { index, screen -> [String: Any] in
   let frame = screen.frame
   let backing = screen.convertRectToBacking(frame)
@@ -229,6 +299,7 @@ let screens = NSScreen.screens.enumerated().map { index, screen -> [String: Any]
     "width": Int(backing.size.width.rounded()),
     "height": Int(backing.size.height.rounded()),
     "scaleFactor": screen.backingScaleFactor,
+    "containsCursor": frame.contains(cursor),
   ]
 }
 

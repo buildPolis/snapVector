@@ -99,17 +99,11 @@ func TestExportDocumentPNGCopiesConvertedBytes(t *testing.T) {
 	}
 }
 
-func TestCaptureRegionUsesCapturerMetadata(t *testing.T) {
+func TestCaptureRegionUsesInteractiveMetadata(t *testing.T) {
 	rawPNG := mustPNG(t)
 	app := NewApp()
 	app.newCapturer = func() capture.Capturer {
 		return fakeCapturer{
-			fullPNG: rawPNG,
-			fullMeta: capture.Meta{
-				DisplayID: "display-1",
-				Width:     160,
-				Height:    120,
-			},
 			regionPNG: rawPNG,
 			regionMeta: capture.Meta{
 				X:      18,
@@ -142,10 +136,81 @@ func TestCaptureRegionUsesCapturerMetadata(t *testing.T) {
 	}
 }
 
+func TestCaptureAllDisplaysUsesComposedMetadata(t *testing.T) {
+	rawPNG := mustPNG(t)
+	app := NewApp()
+	app.newCapturer = func() capture.Capturer {
+		return fakeCapturer{
+			allPNG: rawPNG,
+			allMeta: capture.Meta{
+				DisplayID: "all",
+				X:         -300,
+				Y:         0,
+				Width:     3840,
+				Height:    4394,
+			},
+		}
+	}
+
+	result, err := app.CaptureAllDisplays()
+	if err != nil {
+		t.Fatalf("CaptureAllDisplays returned error: %v", err)
+	}
+
+	if result.Display["id"] != "all" {
+		t.Fatalf("display id = %+v, want all", result.Display)
+	}
+	if result.CaptureRegion["x"] != -300 || result.CaptureRegion["y"] != 0 {
+		t.Fatalf("captureRegion = %+v, want x=-300 y=0", result.CaptureRegion)
+	}
+	if result.CaptureRegion["width"] != 3840 || result.CaptureRegion["height"] != 4394 {
+		t.Fatalf("captureRegion = %+v, want 3840x4394", result.CaptureRegion)
+	}
+	if result.Display["width"] != 3840 || result.Display["height"] != 4394 {
+		t.Fatalf("display = %+v, want 3840x4394", result.Display)
+	}
+}
+
+func TestCaptureScreenUsesDisplayUnderCursorMetadata(t *testing.T) {
+	rawPNG := mustPNG(t)
+	app := NewApp()
+	app.newCapturer = func() capture.Capturer {
+		return fakeCapturer{
+			fullPNG: rawPNG,
+			fullMeta: capture.Meta{
+				DisplayID:   "2",
+				X:           -300,
+				Y:           2234,
+				Width:       3840,
+				Height:      2160,
+				ScaleFactor: 2,
+			},
+		}
+	}
+
+	result, err := app.CaptureScreen()
+	if err != nil {
+		t.Fatalf("CaptureScreen returned error: %v", err)
+	}
+
+	if result.Display["id"] != "2" {
+		t.Fatalf("display id = %+v, want 2", result.Display)
+	}
+	if result.Display["x"] != -300 || result.Display["y"] != 2234 {
+		t.Fatalf("display = %+v, want x=-300 y=2234", result.Display)
+	}
+	if result.CaptureRegion["width"] != 3840 || result.CaptureRegion["height"] != 2160 {
+		t.Fatalf("captureRegion = %+v, want 3840x2160", result.CaptureRegion)
+	}
+}
+
 type fakeCapturer struct {
 	fullPNG    capture.PNG
 	fullMeta   capture.Meta
 	fullErr    error
+	allPNG     capture.PNG
+	allMeta    capture.Meta
+	allErr     error
 	regionPNG  capture.PNG
 	regionMeta capture.Meta
 	regionErr  error
@@ -153,6 +218,10 @@ type fakeCapturer struct {
 
 func (f fakeCapturer) CaptureFullScreen(context.Context) (capture.PNG, capture.Meta, error) {
 	return f.fullPNG, f.fullMeta, f.fullErr
+}
+
+func (f fakeCapturer) CaptureAllDisplays(context.Context) (capture.PNG, capture.Meta, error) {
+	return f.allPNG, f.allMeta, f.allErr
 }
 
 func (f fakeCapturer) CaptureInteractiveRegion(context.Context) (capture.PNG, capture.Meta, error) {

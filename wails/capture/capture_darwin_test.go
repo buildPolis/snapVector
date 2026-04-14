@@ -59,15 +59,29 @@ func TestFullScreenCaptureArgsDoNotPinDisplayOne(t *testing.T) {
 func TestInteractiveRegionCaptureArgsRemainInteractive(t *testing.T) {
 	args := interactiveRegionCaptureArgs()
 
-	hasInteractive := false
+	want := map[string]bool{"-i": false, "-s": false}
 	for _, arg := range args {
-		if arg == "-i" {
-			hasInteractive = true
-			break
+		if _, ok := want[arg]; ok {
+			want[arg] = true
 		}
 	}
-	if !hasInteractive {
-		t.Fatalf("expected -i in interactive args: %v", args)
+	for flag, seen := range want {
+		if !seen {
+			t.Fatalf("expected %q in interactive args: %v", flag, args)
+		}
+	}
+}
+
+func TestDisplayUnderCursorChoosesContainingDisplay(t *testing.T) {
+	display, ok := displayUnderCursor([]darwinDisplay{
+		{Index: 1, X: 0, Y: 0, Width: 3456, Height: 2234, ContainsCursor: false},
+		{Index: 2, X: -300, Y: 2234, Width: 3840, Height: 2160, ContainsCursor: true},
+	})
+	if !ok {
+		t.Fatal("expected a display under cursor")
+	}
+	if display.Index != 2 {
+		t.Fatalf("display index = %d, want 2", display.Index)
 	}
 }
 

@@ -17,6 +17,7 @@ const els = {
   captureTitle: document.getElementById("captureTitle"),
   captureButton: document.getElementById("captureButton"),
   captureRegionButton: document.getElementById("captureRegionButton"),
+  captureAllDisplaysButton: document.getElementById("captureAllDisplaysButton"),
   undoButton: document.getElementById("undoButton"),
   redoButton: document.getElementById("redoButton"),
   zoomOutButton: document.getElementById("zoomOutButton"),
@@ -88,6 +89,7 @@ function bindUI() {
   });
   els.captureButton.addEventListener("click", () => captureScreen("fullscreen"));
   els.captureRegionButton.addEventListener("click", () => captureScreen("region"));
+  els.captureAllDisplaysButton.addEventListener("click", () => captureScreen("all-displays"));
   els.exportButton.addEventListener("click", () => exportCurrent(false));
   els.copyButton.addEventListener("click", () => exportCurrent(true));
 
@@ -113,10 +115,34 @@ function bindInspector() {
   els.feather.addEventListener("input", () => updateSelected({ feather: numberValue(els.feather.value, 12) }));
 }
 
+const CAPTURE_MODES = {
+  fullscreen: {
+    title: "captured-screen.png",
+    loadingToast: "正在擷取滑鼠所在螢幕...",
+    doneToast: () => "已載入滑鼠所在螢幕",
+    tool: "select",
+    call: () => backend.captureScreen(),
+  },
+  region: {
+    title: "captured-region.png",
+    loadingToast: "請在桌面拖曳選取擷取範圍...",
+    doneToast: (c) => `已載入所選區域 ${c.width} × ${c.height}`,
+    tool: "select",
+    call: () => backend.captureRegion(),
+  },
+  "all-displays": {
+    title: "captured-all-displays.png",
+    loadingToast: "正在載入所有螢幕，接著可拖曳裁切...",
+    doneToast: (c) => `已載入所有螢幕 ${c.width} × ${c.height}，拖曳框選要保留的區域`,
+    tool: "crop",
+    call: () => backend.captureAllDisplays(),
+  },
+};
+
 async function captureScreen(mode = "fullscreen") {
-  const region = mode === "region";
-  showToast(region ? "請在桌面選取擷取範圍..." : "正在擷取畫面...");
-  const capture = region ? await backend.captureRegion() : await backend.captureScreen();
+  const plan = CAPTURE_MODES[mode] || CAPTURE_MODES.fullscreen;
+  showToast(plan.loadingToast);
+  const capture = await plan.call();
   state.capture = {
     base64: capture.base64,
     width: capture.captureRegion?.width ?? capture.display?.width ?? 1200,
@@ -130,15 +156,21 @@ async function captureScreen(mode = "fullscreen") {
   state.future = [];
   state.zoom = 1;
   state.pan = { x: 0, y: 0 };
-  els.captureTitle.textContent = `${region ? "captured-region.png" : "captured-screen.png"} · ${state.capture.width} × ${state.capture.height}`;
-  showToast(region ? `已載入區域擷取 ${state.capture.width} × ${state.capture.height}` : "畫面已載入");
+  state.tool = plan.tool;
+  syncToolButtons();
+  els.captureTitle.textContent = `${plan.title} · ${state.capture.width} × ${state.capture.height}`;
+  showToast(plan.doneToast(state.capture));
   render();
 }
 
 function setTool(tool) {
   state.tool = tool;
-  els.toolButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.tool === tool));
+  syncToolButtons();
   render();
+}
+
+function syncToolButtons() {
+  els.toolButtons.forEach((button) => button.classList.toggle("is-active", button.dataset.tool === state.tool));
 }
 
 function onPointerDown(event) {
@@ -796,6 +828,7 @@ function createBackend() {
     return {
       captureScreen: () => window.go.gui.App.CaptureScreen(),
       captureRegion: () => window.go.gui.App.CaptureRegion(),
+      captureAllDisplays: () => window.go.gui.App.CaptureAllDisplays(),
       exportDocument: (payload, captureBase64, width, height, format, copy) =>
         window.go.gui.App.ExportDocument(payload, captureBase64, width, height, format, copy),
     };
@@ -803,10 +836,13 @@ function createBackend() {
 
   return {
     async captureScreen() {
-      return mockCapture(1200, 720);
+      return mockCapture(1200, 720, { id: "1", x: 1200, y: 0 });
     },
     async captureRegion() {
-      return mockCapture(860, 520);
+      return mockCapture(860, 520, { id: "1", x: 60, y: 80 });
+    },
+    async captureAllDisplays() {
+      return mockCapture(2400, 900, { id: "all", x: -900, y: 0 });
     },
     async exportDocument(payload, captureBase64, width, height, format, copy) {
       const mime = format === "svg" ? "image/svg+xml" : format === "pdf" ? "application/pdf" : format === "jpg" ? "image/jpeg" : "image/png";
@@ -824,7 +860,7 @@ function createBackend() {
   };
 }
 
-function mockCapture(width, height) {
+function mockCapture(width, height, display = { id: "1", x: 0, y: 0 }) {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -843,8 +879,8 @@ function mockCapture(width, height) {
     format: "png",
     mimeType: "image/png",
     base64: canvas.toDataURL("image/png").split(",")[1],
-    display: { width, height },
-    captureRegion: { x: 0, y: 0, width, height },
+    display: { id: display.id, x: display.x, y: display.y, width, height },
+    captureRegion: { x: display.x, y: display.y, width, height },
   };
 }
 
