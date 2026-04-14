@@ -86,23 +86,25 @@
               <button id="zoomOutButton" class="ghost-btn" title="Zoom out">-</button>
               <button id="zoomResetButton" class="ghost-btn" title="Reset zoom">100%</button>
               <button id="zoomInButton" class="ghost-btn" title="Zoom in">+</button>
-              <button id="copyButton" class="ghost-btn" title="Copy to clipboard">
+              <button id="copyButton" class="ghost-btn" title="Copy to clipboard (always PNG)">
                 <svg><use href="#icon-copy" /></svg>
                 Copy
               </button>
-              <label class="toolbar-select-wrapper">
-                <span class="visually-hidden">Export format</span>
-                <select id="exportFormat" class="toolbar-select">
-                  <option value="svg">SVG</option>
-                  <option value="png">PNG</option>
-                  <option value="jpg">JPG</option>
-                  <option value="pdf">PDF</option>
-                </select>
-              </label>
-              <button id="exportButton" class="primary-btn" title="Export current result">
-                <svg><use href="#icon-download" /></svg>
-                Export
-              </button>
+              <div class="canvas-actions-right">
+                <label class="toolbar-select-wrapper">
+                  <span class="visually-hidden">Export format</span>
+                  <select id="exportFormat" class="toolbar-select">
+                    <option value="svg">SVG</option>
+                    <option value="png">PNG</option>
+                    <option value="jpg">JPG</option>
+                    <option value="pdf">PDF</option>
+                  </select>
+                </label>
+                <button id="exportButton" class="primary-btn" title="Export current result">
+                  <svg><use href="#icon-download" /></svg>
+                  Export
+                </button>
+              </div>
             </div>
 
             <div class="canvas" id="canvasHost">

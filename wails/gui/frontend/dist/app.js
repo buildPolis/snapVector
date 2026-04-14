@@ -880,7 +880,9 @@ function updateStatus() {
 
 async function exportCurrent(copyToClipboard) {
   if (!state.capture) return;
-  const format = els.exportFormat.value;
+  // Copy always produces PNG — that's what downstream apps (Slack, docs,
+  // issue trackers) consistently accept from the clipboard.
+  const format = copyToClipboard ? "png" : els.exportFormat.value;
   const payload = JSON.stringify(state.annotations.map(toPayload));
   const result = await backend.exportDocument(payload, state.capture.base64, state.capture.width, state.capture.height, format, copyToClipboard);
   if (copyToClipboard) {
