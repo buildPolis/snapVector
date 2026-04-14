@@ -27,10 +27,16 @@ sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
 
 | Package | Purpose |
 |---|---|
-| `libgtk-3-dev` | GTK3 headers for Wails GUI |
-| `libwebkit2gtk-4.1-dev` | WebKit headers for Wails GUI |
+| `libgtk-3-dev` | GTK3 headers for Wails GUI (build only) |
+| `libwebkit2gtk-4.1-dev` | WebKit headers for Wails GUI (build only) |
 | `librsvg2-bin` | `rsvg-convert` for SVG→PNG/JPG/PDF export |
 | `xclip` | Clipboard write (X11); use `wl-clipboard` on Wayland |
+
+> **Note:** `-dev` packages are only needed on the **build machine**. End users running the pre-built binary only need the runtime libraries (`libgtk-3-0t64`, `libwebkit2gtk-4.1-0` — pre-installed on Ubuntu Desktop) plus `librsvg2-bin` and `xclip`:
+>
+> ```bash
+> sudo apt-get install -y librsvg2-bin xclip
+> ```
 
 **Dev mode:**
 
