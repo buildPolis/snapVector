@@ -132,70 +132,75 @@
           </section>
 
           <aside class="inspector" aria-label="inspector">
-            <div class="inspector-tabs" role="tablist">
-              <button class="inspector-tab is-active" role="tab" aria-selected="true">Inspector</button>
-              <button class="inspector-tab" role="tab" aria-selected="false">JSON preview</button>
-            </div>
             <div class="inspector-body">
-              <section class="inspector-section">
-                <h3>Selected annotation</h3>
-                <div class="chip-row" id="selectedMeta">
-                  <span class="chip">未選取</span>
+              <p id="inspectorEmpty" class="inspector-empty">尚未選取 · 點擊畫布上的標註以編輯屬性</p>
+
+              <section class="inspector-section is-hidden" id="sectionSelected">
+                <div class="section-head">
+                  <h3>目前選取的標註</h3>
+                  <button type="button" class="hint-toggle" aria-label="說明" aria-expanded="false" title="說明">ⓘ</button>
                 </div>
+                <p class="section-hint">畫布上選中的那一個標註物件；下方欄位會即時同步它的屬性。</p>
+                <div class="chip-row" id="selectedMeta"></div>
               </section>
 
-              <section class="inspector-section">
-                <h3>Geometry</h3>
+              <section class="inspector-section is-hidden" id="sectionGeometry">
+                <div class="section-head">
+                  <h3>幾何尺寸</h3>
+                  <button type="button" class="hint-toggle" aria-label="說明" aria-expanded="false" title="說明">ⓘ</button>
+                </div>
+                <p class="section-hint">單位：像素（px），以擷取畫面左上角為原點。箭頭顯示 x1/y1/x2/y2 兩個端點；其他形狀顯示左上座標與寬高。</p>
                 <div class="field-grid" id="geometryFields"></div>
               </section>
 
-              <section class="inspector-section">
-                <h3>Text</h3>
+              <section class="inspector-section is-hidden" id="sectionText">
+                <div class="section-head">
+                  <h3>文字標註</h3>
+                  <button type="button" class="hint-toggle" aria-label="說明" aria-expanded="false" title="說明">ⓘ</button>
+                </div>
+                <p class="section-hint">僅當選中 text 類型時生效；完整支援繁中 / 日文 / 韓文輸入法。</p>
                 <div class="field">
-                  <label for="textContent">Content</label>
+                  <label for="textContent">內容</label>
                   <textarea id="textContent" rows="4"></textarea>
                 </div>
                 <div class="field-grid">
                   <div class="field">
-                    <label for="textVariant">Variant</label>
+                    <label for="textVariant">樣式 (solid / outline)</label>
                     <select id="textVariant" class="toolbar-select">
-                      <option value="solid">solid</option>
-                      <option value="outline">outline</option>
+                      <option value="solid">solid · 紅底白字</option>
+                      <option value="outline">outline · 白底紅邊</option>
                     </select>
                   </div>
                   <div class="field">
-                    <label for="textFontSize">Font size</label>
+                    <label for="textFontSize">字級 (px)</label>
                     <input id="textFontSize" type="number" min="8" step="1" />
                   </div>
                   <div class="field">
-                    <label for="textMaxWidth">Max width</label>
+                    <label for="textMaxWidth">最大寬度 (px，0 = 不換行)</label>
                     <input id="textMaxWidth" type="number" min="0" step="1" />
                   </div>
                 </div>
               </section>
 
-              <section class="inspector-section">
-                <h3>Blur</h3>
+              <section class="inspector-section is-hidden" id="sectionBlur">
+                <div class="section-head">
+                  <h3>模糊遮蔽</h3>
+                  <button type="button" class="hint-toggle" aria-label="說明" aria-expanded="false" title="說明">ⓘ</button>
+                </div>
+                <p class="section-hint">僅當選中 blur 類型時生效；用圓角矩形遮住敏感區塊，匯出 SVG / PNG / JPG / PDF 時都會保留模糊效果。</p>
                 <div class="field-grid">
                   <div class="field">
-                    <label for="blurRadius">Blur radius</label>
+                    <label for="blurRadius">模糊強度</label>
                     <input id="blurRadius" type="number" min="1" step="1" />
                   </div>
                   <div class="field">
-                    <label for="cornerRadius">Corner radius</label>
+                    <label for="cornerRadius">圓角半徑 (px)</label>
                     <input id="cornerRadius" type="number" min="0" step="1" />
                   </div>
                   <div class="field">
-                    <label for="feather">Feather</label>
+                    <label for="feather">邊緣柔化 (px)</label>
                     <input id="feather" type="number" min="0" step="1" />
                   </div>
-                </div>
-              </section>
-
-              <section class="inspector-section">
-                <h3>Live payload</h3>
-                <div class="json-pane">
-                  <pre id="jsonPreview">[]</pre>
                 </div>
               </section>
             </div>

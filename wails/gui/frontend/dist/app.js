@@ -70,7 +70,6 @@ const els = {
   blurRadius: document.getElementById("blurRadius"),
   cornerRadius: document.getElementById("cornerRadius"),
   feather: document.getElementById("feather"),
-  jsonPreview: document.getElementById("jsonPreview"),
   statusX: document.getElementById("statusX"),
   statusY: document.getElementById("statusY"),
   statusZoom: document.getElementById("statusZoom"),
@@ -115,6 +114,7 @@ function bindUI() {
   els.zoomInButton.addEventListener("click", () => changeZoom(0.1));
   els.zoomResetButton.addEventListener("click", () => {
     state.zoom = 1;
+    state.zoomAutoFit = false;
     state.pan = { x: 0, y: 0 };
     render();
   });
@@ -134,7 +134,32 @@ function bindUI() {
   });
 
   bindInspector();
+  bindHintToggles();
+  bindCanvasResize();
   updateDocumentUI();
+}
+
+function bindCanvasResize() {
+  if (!els.canvasHost || typeof ResizeObserver !== "function") return;
+  const observer = new ResizeObserver(() => {
+    if (!state.capture || !state.zoomAutoFit) return;
+    const next = fitToWidthZoom(state.capture.width);
+    if (Math.abs(next - state.zoom) < 0.001) return;
+    state.zoom = next;
+    render();
+  });
+  observer.observe(els.canvasHost);
+}
+
+function bindHintToggles() {
+  document.querySelectorAll(".hint-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const hint = btn.closest(".inspector-section")?.querySelector(".section-hint");
+      if (!hint) return;
+      const open = hint.classList.toggle("is-open");
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  });
 }
 
 function bindInspector() {
@@ -200,7 +225,8 @@ async function captureScreen(mode = "fullscreen") {
   state.selectedId = null;
   state.history = [];
   state.future = [];
-  state.zoom = DEFAULT_ZOOM;
+  state.zoom = fitToWidthZoom(state.capture.width);
+  state.zoomAutoFit = true;
   state.pan = { x: 0, y: 0 };
   state.tool = plan.tool;
   syncDirtyState();
@@ -642,6 +668,7 @@ function render() {
   if (!state.capture) {
     els.emptyState.classList.remove("is-hidden");
     els.canvasStage.classList.add("is-hidden");
+    document.querySelector(".app-body")?.classList.add("inspector-collapsed");
     return;
   }
 
@@ -658,7 +685,6 @@ function render() {
   renderHTMLAnnotations();
   renderSelection();
   renderInspector();
-  renderJSONPreview();
   updateStatus();
 }
 
@@ -804,16 +830,31 @@ function renderInspector() {
   els.selectedMeta.innerHTML = "";
   els.geometryFields.innerHTML = "";
 
+  const emptyHint = document.getElementById("inspectorEmpty");
+  const sectionSelected = document.getElementById("sectionSelected");
+  const sectionGeometry = document.getElementById("sectionGeometry");
+  const sectionText = document.getElementById("sectionText");
+  const sectionBlur = document.getElementById("sectionBlur");
+  const appBody = document.querySelector(".app-body");
+
   if (!ann) {
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.textContent = "未選取";
-    els.selectedMeta.appendChild(chip);
     disableInspector(true);
+    appBody?.classList.add("inspector-collapsed");
+    emptyHint?.classList.add("is-hidden");
+    sectionSelected?.classList.add("is-hidden");
+    sectionGeometry?.classList.add("is-hidden");
+    sectionText?.classList.add("is-hidden");
+    sectionBlur?.classList.add("is-hidden");
     return;
   }
 
   disableInspector(false);
+  appBody?.classList.remove("inspector-collapsed");
+  emptyHint?.classList.add("is-hidden");
+  sectionSelected?.classList.remove("is-hidden");
+  sectionGeometry?.classList.remove("is-hidden");
+  sectionText?.classList.toggle("is-hidden", ann.type !== "text");
+  sectionBlur?.classList.toggle("is-hidden", ann.type !== "blur");
   [ann.type, ann.id].forEach((value, index) => {
     const chip = document.createElement("span");
     chip.className = "chip";
@@ -862,10 +903,6 @@ function disableInspector(disabled) {
   [els.textContent, els.textVariant, els.textFontSize, els.textMaxWidth, els.blurRadius, els.cornerRadius, els.feather].forEach((node) => {
     node.disabled = disabled;
   });
-}
-
-function renderJSONPreview() {
-  els.jsonPreview.textContent = JSON.stringify(state.annotations.map(toPayload), null, 2);
 }
 
 function updateStatus() {
@@ -954,8 +991,21 @@ function shouldShowDraftBox(action) {
   return action.kind === "draw" && ["rectangle", "blur"].includes(action.tool);
 }
 
+function fitToWidthZoom(captureWidth) {
+  const host = els.canvasHost;
+  if (!host || !captureWidth) return DEFAULT_ZOOM;
+  // Account for the 24px padding on each side of .canvas.
+  const available = Math.max(host.clientWidth - 48, 0);
+  if (available <= 0) return DEFAULT_ZOOM;
+  const fit = available / captureWidth;
+  // Never blow the image up past DEFAULT_ZOOM on a tiny capture; keep a
+  // sensible floor so a huge capture still has legible detail.
+  return clamp(fit, 0.15, DEFAULT_ZOOM);
+}
+
 function changeZoom(delta) {
-  state.zoom = clamp(state.zoom + delta, 0.5, 3);
+  state.zoom = clamp(state.zoom + delta, 0.1, 3);
+  state.zoomAutoFit = false;
   render();
 }
 
