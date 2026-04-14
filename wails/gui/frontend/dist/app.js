@@ -11,10 +11,23 @@ const state = {
   pointer: { x: 0, y: 0 },
   zoom: 1,
   pan: { x: 0, y: 0 },
+  document: {
+    path: "",
+    name: "Untitled",
+    dirty: false,
+    savedFingerprint: "",
+    menuOpen: false,
+  },
 };
 
 const els = {
   captureTitle: document.getElementById("captureTitle"),
+  fileMenuButton: document.getElementById("fileMenuButton"),
+  fileMenu: document.getElementById("fileMenu"),
+  openDocumentButton: document.getElementById("openDocumentButton"),
+  saveDocumentButton: document.getElementById("saveDocumentButton"),
+  saveDocumentAsButton: document.getElementById("saveDocumentAsButton"),
+  documentBadge: document.getElementById("documentBadge"),
   captureButton: document.getElementById("captureButton"),
   captureRegionButton: document.getElementById("captureRegionButton"),
   captureAllDisplaysButton: document.getElementById("captureAllDisplaysButton"),
@@ -80,6 +93,13 @@ function bindUI() {
 
   els.undoButton.addEventListener("click", undo);
   els.redoButton.addEventListener("click", redo);
+  els.fileMenuButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleFileMenu();
+  });
+  els.openDocumentButton.addEventListener("click", openDocument);
+  els.saveDocumentButton.addEventListener("click", saveDocument);
+  els.saveDocumentAsButton.addEventListener("click", saveDocumentAs);
   els.zoomOutButton.addEventListener("click", () => changeZoom(-0.1));
   els.zoomInButton.addEventListener("click", () => changeZoom(0.1));
   els.zoomResetButton.addEventListener("click", () => {
@@ -96,8 +116,14 @@ function bindUI() {
   els.canvasStage.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("click", (event) => {
+    if (!event.target.closest(".menu-shell")) {
+      closeFileMenu();
+    }
+  });
 
   bindInspector();
+  updateDocumentUI();
 }
 
 function bindInspector() {
@@ -105,6 +131,7 @@ function bindInspector() {
     const ann = selectedAnnotation();
     if (!ann || ann.type !== "text") return;
     ann.text = els.textContent.value;
+    syncDirtyState();
     render();
   });
   els.textVariant.addEventListener("change", () => updateSelected({ variant: els.textVariant.value }));
@@ -141,6 +168,7 @@ const CAPTURE_MODES = {
 
 async function captureScreen(mode = "fullscreen") {
   const plan = CAPTURE_MODES[mode] || CAPTURE_MODES.fullscreen;
+  closeFileMenu();
   showToast(plan.loadingToast);
   const capture = await plan.call();
   state.capture = {
@@ -149,6 +177,8 @@ async function captureScreen(mode = "fullscreen") {
     height: capture.captureRegion?.height ?? capture.display?.height ?? 720,
     format: capture.format,
     mimeType: capture.mimeType,
+    display: capture.display || null,
+    captureRegion: capture.captureRegion || null,
   };
   state.annotations = [];
   state.selectedId = null;
@@ -157,6 +187,7 @@ async function captureScreen(mode = "fullscreen") {
   state.zoom = 1;
   state.pan = { x: 0, y: 0 };
   state.tool = plan.tool;
+  syncDirtyState();
   syncToolButtons();
   els.captureTitle.textContent = `${plan.title} · ${state.capture.width} × ${state.capture.height}`;
   showToast(plan.doneToast(state.capture));
@@ -275,6 +306,8 @@ function onPointerMove(event) {
 function onPointerUp() {
   if (!state.action) return;
 
+  const actionKind = state.action.kind;
+
   if (state.action.kind === "draw") {
     commitDraft(state.action.tool, state.action.origin, state.action.current);
   } else if (state.action.kind === "crop") {
@@ -282,6 +315,9 @@ function onPointerUp() {
   }
 
   state.action = null;
+  if (["draw", "crop", "move", "resize"].includes(actionKind)) {
+    syncDirtyState();
+  }
   render();
 }
 
@@ -322,10 +358,17 @@ function applyCrop(origin, current) {
     base64: dataURL.split(",")[1],
     width: rect.width,
     height: rect.height,
+    captureRegion: {
+      x: (state.capture.captureRegion?.x || 0) + rect.x,
+      y: (state.capture.captureRegion?.y || 0) + rect.y,
+      width: rect.width,
+      height: rect.height,
+    },
   };
   state.annotations = [];
   state.selectedId = null;
   state.tool = "select";
+  syncDirtyState();
   showToast(`已裁切到 ${rect.width} × ${rect.height}`);
 }
 
@@ -389,6 +432,7 @@ function updateSelected(patch) {
   if (!ann) return;
   pushHistory();
   Object.assign(ann, patch);
+  syncDirtyState();
   render();
 }
 
@@ -396,6 +440,7 @@ function undo() {
   if (!state.history.length) return;
   state.future.push(snapshot());
   restoreSnapshot(state.history.pop());
+  syncDirtyState();
   render();
 }
 
@@ -403,6 +448,7 @@ function redo() {
   if (!state.future.length) return;
   state.history.push(snapshot());
   restoreSnapshot(state.future.pop());
+  syncDirtyState();
   render();
 }
 
@@ -432,9 +478,149 @@ function restoreSnapshot(data) {
   state.pan = { ...data.pan };
 }
 
+function toggleFileMenu() {
+  state.document.menuOpen = !state.document.menuOpen;
+  updateDocumentUI();
+}
+
+function closeFileMenu() {
+  if (!state.document.menuOpen) return;
+  state.document.menuOpen = false;
+  updateDocumentUI();
+}
+
+function updateDocumentUI() {
+  const dirtyLabel = state.document.dirty ? "unsaved" : "saved";
+  els.documentBadge.textContent = `${state.document.name} · ${dirtyLabel}`;
+  els.documentBadge.classList.toggle("is-dirty", state.document.dirty);
+  els.fileMenu.classList.toggle("is-hidden", !state.document.menuOpen);
+  els.fileMenuButton.setAttribute("aria-expanded", state.document.menuOpen ? "true" : "false");
+  els.saveDocumentButton.disabled = !state.capture;
+  els.saveDocumentAsButton.disabled = !state.capture;
+  els.captureTitle.textContent = state.capture
+    ? `${state.document.name}${state.document.dirty ? " *" : ""} · ${state.capture.width} × ${state.capture.height}`
+    : "準備擷取畫面";
+}
+
+function serializeDocument() {
+  if (!state.capture) return null;
+  return {
+    kind: "snapvector-document",
+    version: 1,
+    capture: {
+      base64: state.capture.base64,
+      width: state.capture.width,
+      height: state.capture.height,
+      format: state.capture.format,
+      mimeType: state.capture.mimeType,
+      display: state.capture.display || null,
+      captureRegion: state.capture.captureRegion || null,
+    },
+    annotations: state.annotations.map(toPayload),
+  };
+}
+
+function documentFingerprint() {
+  const doc = serializeDocument();
+  return doc ? JSON.stringify(doc) : "";
+}
+
+function syncDirtyState() {
+  const fingerprint = documentFingerprint();
+  state.document.dirty = fingerprint !== "" && fingerprint !== state.document.savedFingerprint;
+}
+
+function defaultDocumentName() {
+  if (state.document.name && state.document.name !== "Untitled") {
+    return state.document.name;
+  }
+  return "capture.sv.json";
+}
+
+async function openDocument() {
+  closeFileMenu();
+  try {
+    const result = await backend.openDocument();
+    if (!result) return;
+    const parsed = JSON.parse(result.contents);
+    if (parsed.kind !== "snapvector-document" || parsed.version !== 1 || !parsed.capture || !Array.isArray(parsed.annotations)) {
+      throw new Error("不支援的文件格式");
+    }
+
+    state.capture = {
+      base64: parsed.capture.base64,
+      width: parsed.capture.width,
+      height: parsed.capture.height,
+      format: parsed.capture.format || "png",
+      mimeType: parsed.capture.mimeType || "image/png",
+      display: parsed.capture.display || null,
+      captureRegion: parsed.capture.captureRegion || null,
+    };
+    state.annotations = parsed.annotations.map(cloneAnnotation);
+    state.selectedId = null;
+    state.history = [];
+    state.future = [];
+    state.zoom = 1;
+    state.pan = { x: 0, y: 0 };
+    state.tool = "select";
+    state.document.path = result.path;
+    state.document.name = result.name || "Untitled";
+    state.document.savedFingerprint = documentFingerprint();
+    state.document.dirty = false;
+    render();
+    showToast(`已開啟 ${state.document.name}`);
+  } catch (error) {
+    console.error(error);
+    showToast(String(error));
+  }
+}
+
+async function saveDocument() {
+  closeFileMenu();
+  if (!state.capture) return;
+  try {
+    const contents = JSON.stringify(serializeDocument(), null, 2);
+    let result;
+    if (state.document.path) {
+      result = await backend.saveDocument(state.document.path, contents);
+    } else {
+      result = await backend.saveDocumentAs(defaultDocumentName(), contents);
+    }
+    if (!result) return;
+    state.document.path = result.path;
+    state.document.name = result.name || "Untitled";
+    state.document.savedFingerprint = documentFingerprint();
+    state.document.dirty = false;
+    render();
+    showToast(`已儲存 ${state.document.name}`);
+  } catch (error) {
+    console.error(error);
+    showToast(String(error));
+  }
+}
+
+async function saveDocumentAs() {
+  closeFileMenu();
+  if (!state.capture) return;
+  try {
+    const result = await backend.saveDocumentAs(defaultDocumentName(), JSON.stringify(serializeDocument(), null, 2));
+    if (!result) return;
+    state.document.path = result.path;
+    state.document.name = result.name || "Untitled";
+    state.document.savedFingerprint = documentFingerprint();
+    state.document.dirty = false;
+    render();
+    showToast(`已另存為 ${state.document.name}`);
+  } catch (error) {
+    console.error(error);
+    showToast(String(error));
+  }
+}
+
 function render() {
   els.undoButton.disabled = state.history.length === 0;
   els.redoButton.disabled = state.future.length === 0;
+  updateDocumentUI();
 
   if (!state.capture) {
     els.emptyState.classList.remove("is-hidden");
@@ -623,6 +809,7 @@ function addField(key, value) {
     const next = numberValue(input.value, 0);
     pushHistory();
     ann[key] = next;
+    syncDirtyState();
     render();
   });
   wrapper.appendChild(label);
@@ -829,10 +1016,16 @@ function createBackend() {
       captureScreen: () => window.go.gui.App.CaptureScreen(),
       captureRegion: () => window.go.gui.App.CaptureRegion(),
       captureAllDisplays: () => window.go.gui.App.CaptureAllDisplays(),
+      openDocument: () => window.go.gui.App.OpenDocument(),
+      saveDocument: (path, contents) => window.go.gui.App.SaveDocument(path, contents),
+      saveDocumentAs: (suggestedName, contents) => window.go.gui.App.SaveDocumentAs(suggestedName, contents),
       exportDocument: (payload, captureBase64, width, height, format, copy) =>
         window.go.gui.App.ExportDocument(payload, captureBase64, width, height, format, copy),
     };
   }
+
+  const mockDocuments = new Map();
+  let mockCounter = 1;
 
   return {
     async captureScreen() {
@@ -843,6 +1036,23 @@ function createBackend() {
     },
     async captureAllDisplays() {
       return mockCapture(2400, 900, { id: "all", x: -900, y: 0 });
+    },
+    async openDocument() {
+      const entries = Array.from(mockDocuments.entries());
+      if (!entries.length) {
+        throw new Error("目前沒有已儲存文件");
+      }
+      const [path, contents] = entries[entries.length - 1];
+      return { path, name: path.split("/").pop(), contents };
+    },
+    async saveDocument(path, contents) {
+      mockDocuments.set(path, contents);
+      return { path, name: path.split("/").pop() };
+    },
+    async saveDocumentAs(suggestedName, contents) {
+      const path = `/mock/${suggestedName.replace(/\.sv\.json$/i, "")}-${mockCounter++}.sv.json`;
+      mockDocuments.set(path, contents);
+      return { path, name: path.split("/").pop() };
     },
     async exportDocument(payload, captureBase64, width, height, format, copy) {
       const mime = format === "svg" ? "image/svg+xml" : format === "pdf" ? "application/pdf" : format === "jpg" ? "image/jpeg" : "image/png";

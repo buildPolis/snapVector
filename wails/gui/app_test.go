@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
+	"os"
 	"testing"
+
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"snapvector/annotation"
 	"snapvector/capture"
@@ -201,6 +205,139 @@ func TestCaptureScreenUsesDisplayUnderCursorMetadata(t *testing.T) {
 	}
 	if result.CaptureRegion["width"] != 3840 || result.CaptureRegion["height"] != 2160 {
 		t.Fatalf("captureRegion = %+v, want 3840x2160", result.CaptureRegion)
+	}
+}
+
+func TestOpenDocumentUsesDialogAndReadsContents(t *testing.T) {
+	app := NewApp()
+	app.openFileDialog = func(_ context.Context, opts wailsruntime.OpenDialogOptions) (string, error) {
+		if opts.Title == "" || len(opts.Filters) == 0 {
+			t.Fatalf("unexpected dialog options: %+v", opts)
+		}
+		return "/tmp/example.sv.json", nil
+	}
+	app.readFile = func(path string) ([]byte, error) {
+		if path != "/tmp/example.sv.json" {
+			t.Fatalf("read path = %q", path)
+		}
+		return []byte(`{"kind":"snapvector-document","version":1}`), nil
+	}
+
+	result, err := app.OpenDocument()
+	if err != nil {
+		t.Fatalf("OpenDocument returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected document result")
+	}
+	if result.Path != "/tmp/example.sv.json" || result.Name != "example.sv.json" {
+		t.Fatalf("unexpected open result: %+v", result)
+	}
+	if result.Contents != `{"kind":"snapvector-document","version":1}` {
+		t.Fatalf("contents = %q", result.Contents)
+	}
+}
+
+func TestSaveDocumentWritesToExistingPath(t *testing.T) {
+	app := NewApp()
+	var gotPath string
+	var gotContents []byte
+	var gotMode os.FileMode
+	app.writeFile = func(path string, data []byte, mode os.FileMode) error {
+		gotPath = path
+		gotContents = append([]byte(nil), data...)
+		gotMode = mode
+		return nil
+	}
+
+	result, err := app.SaveDocument("/tmp/existing.sv.json", `{"annotations":[]}`)
+	if err != nil {
+		t.Fatalf("SaveDocument returned error: %v", err)
+	}
+	if result.Path != "/tmp/existing.sv.json" || result.Name != "existing.sv.json" {
+		t.Fatalf("unexpected save result: %+v", result)
+	}
+	if gotPath != "/tmp/existing.sv.json" {
+		t.Fatalf("write path = %q", gotPath)
+	}
+	if string(gotContents) != `{"annotations":[]}` {
+		t.Fatalf("write contents = %q", string(gotContents))
+	}
+	if gotMode != 0o600 {
+		t.Fatalf("write mode = %v, want 0600", gotMode)
+	}
+}
+
+func TestSaveDocumentAsPromptsAndAppendsExtension(t *testing.T) {
+	app := NewApp()
+	app.saveFileDialog = func(_ context.Context, opts wailsruntime.SaveDialogOptions) (string, error) {
+		if opts.DefaultFilename != "capture-01.sv.json" {
+			t.Fatalf("default filename = %q", opts.DefaultFilename)
+		}
+		return "/tmp/capture-01", nil
+	}
+
+	var gotPath string
+	app.writeFile = func(path string, data []byte, mode os.FileMode) error {
+		gotPath = path
+		return nil
+	}
+
+	result, err := app.SaveDocumentAs("capture-01", `{"annotations":[]}`)
+	if err != nil {
+		t.Fatalf("SaveDocumentAs returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected save-as result")
+	}
+	if result.Path != "/tmp/capture-01.sv.json" || result.Name != "capture-01.sv.json" {
+		t.Fatalf("unexpected save-as result: %+v", result)
+	}
+	if gotPath != "/tmp/capture-01.sv.json" {
+		t.Fatalf("write path = %q", gotPath)
+	}
+}
+
+func TestSaveDocumentAsCancelReturnsNil(t *testing.T) {
+	app := NewApp()
+	app.saveFileDialog = func(context.Context, wailsruntime.SaveDialogOptions) (string, error) {
+		return "", nil
+	}
+
+	result, err := app.SaveDocumentAs("capture-01", `{"annotations":[]}`)
+	if err != nil {
+		t.Fatalf("SaveDocumentAs returned error: %v", err)
+	}
+	if result != nil {
+		t.Fatalf("expected nil result on cancel, got %+v", result)
+	}
+}
+
+func TestOpenDocumentPropagatesReadError(t *testing.T) {
+	app := NewApp()
+	app.openFileDialog = func(context.Context, wailsruntime.OpenDialogOptions) (string, error) {
+		return "/tmp/example.sv.json", nil
+	}
+	app.readFile = func(string) ([]byte, error) {
+		return nil, errors.New("boom")
+	}
+
+	_, err := app.OpenDocument()
+	if err == nil || err.Error() != "read document: boom" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestFileDialogFiltersAvoidMultiDotPatterns(t *testing.T) {
+	filters := fileDialogFilters()
+	if len(filters) != 1 {
+		t.Fatalf("filter count = %d, want 1", len(filters))
+	}
+	if filters[0].Pattern != "*.json" {
+		t.Fatalf("pattern = %q, want *.json", filters[0].Pattern)
+	}
+	if filters[0].DisplayName == "" {
+		t.Fatal("expected non-empty display name")
 	}
 }
 

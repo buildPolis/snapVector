@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,6 +23,10 @@ type App struct {
 	newCapturer     func() capture.Capturer
 	convertExporter func(context.Context, string, string) ([]byte, string, error)
 	writeClipboard  func(context.Context, []byte, string) error
+	openFileDialog  func(context.Context, wailsruntime.OpenDialogOptions) (string, error)
+	saveFileDialog  func(context.Context, wailsruntime.SaveDialogOptions) (string, error)
+	readFile        func(string) ([]byte, error)
+	writeFile       func(string, []byte, os.FileMode) error
 	hideWindow      func(context.Context)
 	showWindow      func(context.Context)
 	preCaptureDelay time.Duration
@@ -46,11 +52,26 @@ type ExportResult struct {
 	CopiedToClipboard bool           `json:"copiedToClipboard,omitempty"`
 }
 
+type DocumentOpenResult struct {
+	Path     string `json:"path"`
+	Name     string `json:"name"`
+	Contents string `json:"contents"`
+}
+
+type DocumentSaveResult struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
+}
+
 func NewApp() *App {
 	return &App{
 		newCapturer:     capture.NewPlatformCapturer,
 		convertExporter: exportdoc.Convert,
 		writeClipboard:  clipboarddoc.Write,
+		openFileDialog:  wailsruntime.OpenFileDialog,
+		saveFileDialog:  wailsruntime.SaveFileDialog,
+		readFile:        os.ReadFile,
+		writeFile:       os.WriteFile,
 		hideWindow:      wailsruntime.WindowHide,
 		showWindow:      wailsruntime.WindowShow,
 		preCaptureDelay: 250 * time.Millisecond,
@@ -182,6 +203,83 @@ func (a *App) ExportDocument(payload string, captureBase64 string, width int, he
 	return result, nil
 }
 
+func (a *App) OpenDocument() (*DocumentOpenResult, error) {
+	ctx, cancel := a.captureContext()
+	defer cancel()
+
+	path, err := a.openFileDialog(ctx, wailsruntime.OpenDialogOptions{
+		Title:           "Open SnapVector document",
+		DefaultFilename: "untitled.sv.json",
+		Filters:         fileDialogFilters(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(path) == "" {
+		return nil, nil
+	}
+
+	raw, err := a.readFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read document: %w", err)
+	}
+
+	return &DocumentOpenResult{
+		Path:     path,
+		Name:     filepath.Base(path),
+		Contents: string(raw),
+	}, nil
+}
+
+func (a *App) SaveDocument(path string, contents string) (*DocumentSaveResult, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, fmt.Errorf("save document requires a target path")
+	}
+	if err := a.writeDocument(path, contents); err != nil {
+		return nil, err
+	}
+	return &DocumentSaveResult{Path: path, Name: filepath.Base(path)}, nil
+}
+
+func (a *App) SaveDocumentAs(suggestedName string, contents string) (*DocumentSaveResult, error) {
+	ctx, cancel := a.captureContext()
+	defer cancel()
+
+	suggestedName = ensureDocumentExtension(strings.TrimSpace(suggestedName))
+	if suggestedName == "" {
+		suggestedName = "untitled.sv.json"
+	}
+
+	path, err := a.saveFileDialog(ctx, wailsruntime.SaveDialogOptions{
+		Title:           "Save SnapVector document",
+		DefaultFilename: suggestedName,
+		Filters:         fileDialogFilters(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(path) == "" {
+		return nil, nil
+	}
+
+	path = ensureDocumentExtension(path)
+	if err := a.writeDocument(path, contents); err != nil {
+		return nil, err
+	}
+	return &DocumentSaveResult{Path: path, Name: filepath.Base(path)}, nil
+}
+
+func (a *App) writeDocument(path string, contents string) error {
+	if strings.TrimSpace(contents) == "" {
+		return fmt.Errorf("document contents cannot be empty")
+	}
+	if err := a.writeFile(path, []byte(contents), 0o600); err != nil {
+		return fmt.Errorf("write document: %w", err)
+	}
+	return nil
+}
+
 func (a *App) waitOrCancel(ctx context.Context, d time.Duration) {
 	if d <= 0 {
 		return
@@ -235,5 +333,23 @@ func captureRegionData(meta capture.Meta) map[string]any {
 		"y":      meta.Y,
 		"width":  meta.Width,
 		"height": meta.Height,
+	}
+}
+
+func ensureDocumentExtension(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" || strings.HasSuffix(strings.ToLower(path), ".sv.json") {
+		return path
+	}
+	return path + ".sv.json"
+}
+
+func fileDialogFilters() []wailsruntime.FileFilter {
+	// Wails darwin Save/Open dialogs map each extension token through
+	// UTType.typeWithFilenameExtension. Multi-dot extensions like "sv.json"
+	// can produce nil and crash the native dialog, so keep the filter to the
+	// safe "*.json" token and enforce ".sv.json" through the filename/path.
+	return []wailsruntime.FileFilter{
+		{DisplayName: "SnapVector Documents (*.sv.json, *.json)", Pattern: "*.json"},
 	}
 }

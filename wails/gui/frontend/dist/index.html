@@ -17,6 +17,20 @@
               <strong id="captureTitle">準備擷取畫面</strong>
             </div>
           </div>
+          <div class="topbar-actions">
+            <div class="menu-shell">
+              <button type="button" id="fileMenuButton" class="ghost-btn menu-trigger" aria-haspopup="menu" aria-expanded="false">
+                File
+                <svg><use href="#icon-chevron-down" /></svg>
+              </button>
+              <div id="fileMenu" class="menu-dropdown is-hidden" role="menu" aria-label="File menu">
+                <button type="button" id="openDocumentButton" class="menu-item" role="menuitem">Open…</button>
+                <button type="button" id="saveDocumentButton" class="menu-item" role="menuitem">Save</button>
+                <button type="button" id="saveDocumentAsButton" class="menu-item" role="menuitem">Save As…</button>
+              </div>
+            </div>
+            <span id="documentBadge" class="document-badge">Untitled · saved</span>
+          </div>
           <span class="kbd-hint">
             <span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">4</span>
             <span>Wails GUI shell</span>
@@ -218,6 +232,7 @@
         <symbol id="icon-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M4 16V6a2 2 0 012-2h10" /></g></symbol>
         <symbol id="icon-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12" /><path d="M7 11l5 5 5-5" /><path d="M4 20h16" /></g></symbol>
         <symbol id="icon-capture" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2" /><circle cx="12" cy="12.5" r="3.5" /><path d="M8 6l2-2h4l2 2" /></g></symbol>
+        <symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" /></symbol>
       </defs>
     </svg>
 
