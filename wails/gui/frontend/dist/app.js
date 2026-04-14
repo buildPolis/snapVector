@@ -109,6 +109,7 @@ const backend = createBackend();
 async function init() {
   bindUI();
   await loadHotkeys();
+  window.addEventListener("keydown", onRecorderKeydown, true); // capture phase
   window.addEventListener("keydown", onGlobalKeydown);
   // No auto-capture: the hide/show dance in the Go capture path would flash
   // the window right after it first appears. Let the user click a capture
@@ -1572,4 +1573,62 @@ async function savePreferences() {
     els.preferencesStatus.textContent = `儲存失敗：${err?.message || err}`;
     els.preferencesStatus.classList.add("is-error");
   }
+}
+
+function onRecorderKeydown(event) {
+  if (!prefs.recordingAction) return;
+  // Stop both preventDefault and propagation so onGlobalKeydown (bubble phase)
+  // never sees this event — otherwise committing a combo could immediately
+  // dispatch the previously-bound action for the same keystroke.
+  event.preventDefault();
+  event.stopPropagation();
+
+  // These keys, pressed alone, control the recorder itself.
+  if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+    if (event.key === "Escape") {
+      cancelRecording();
+      return;
+    }
+    if (event.key === "Backspace" || event.key === "Delete") {
+      const action = prefs.recordingAction;
+      resetRecordingState();
+      setDraftCombo(action, "");
+      return;
+    }
+  }
+
+  if (!SV_Hotkey.isRecordableMainKey(event)) {
+    // Ignore modifier-only presses (wait for a main key).
+    return;
+  }
+
+  const combo = SV_Hotkey.normalize(event, IS_MAC);
+  if (!combo) return;
+  commitRecording(combo);
+}
+
+function commitRecording(combo) {
+  const action = prefs.recordingAction;
+  if (!action) return;
+  const conflict = SV_Hotkey.detectConflict(prefs.draft, action, combo);
+  if (!conflict) {
+    resetRecordingState();
+    setDraftCombo(action, combo);
+    return;
+  }
+  showConflictDialog(action, conflict, combo);
+}
+
+function showConflictDialog(action, conflictAction, combo) {
+  // Placeholder: Task 9 replaces this with an interactive popover.
+  // Auto-reassign for now so the recording flow works end-to-end during
+  // manual testing.
+  reassignCombo(action, conflictAction, combo);
+}
+
+function reassignCombo(action, conflictAction, combo) {
+  const conflictRow = prefs.draft.find((b) => b.action === conflictAction);
+  if (conflictRow) conflictRow.combo = "";
+  resetRecordingState();
+  setDraftCombo(action, combo);
 }
