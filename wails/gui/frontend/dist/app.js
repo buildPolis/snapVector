@@ -82,14 +82,11 @@ const els = {
 
 const backend = createBackend();
 
-init().catch((error) => {
-  console.error(error);
-  showToast(String(error));
-});
-
 async function init() {
   bindUI();
-  await captureScreen("fullscreen");
+  // No auto-capture: the hide/show dance in the Go capture path would flash
+  // the window right after it first appears. Let the user click a capture
+  // button when they're ready.
   render();
 }
 
@@ -180,6 +177,11 @@ const CAPTURE_MODES = {
   },
 };
 
+init().catch((error) => {
+  console.error(error);
+  showToast(String(error));
+});
+
 async function captureScreen(mode = "fullscreen") {
   const plan = CAPTURE_MODES[mode] || CAPTURE_MODES.fullscreen;
   closeFileMenu();
@@ -233,8 +235,9 @@ function onPointerDown(event) {
     return;
   }
 
-  const targetId = event.target.dataset.annotationId;
-  if (targetId) {
+  const targetNode = event.target.closest?.("[data-annotation-id]");
+  const targetId = targetNode?.dataset.annotationId;
+  if (targetId && targetId !== "draft") {
     state.selectedId = targetId;
     if (state.tool === "select") {
       pushHistory();
@@ -672,12 +675,15 @@ function renderVectorAnnotations() {
     group.dataset.annotationId = ann.id;
     group.classList.add("annotation-hit");
     if (ann.type === "rectangle") {
+      group.appendChild(svgHitRect(ann.x, ann.y, ann.width, ann.height));
       group.appendChild(svgRect(ann.x, ann.y, ann.width, ann.height, "#FFFFFF", ann.strokeWidth ?? 16));
       group.appendChild(svgRect(ann.x, ann.y, ann.width, ann.height, "#E53935", ann.strokeWidth ?? 10));
     } else if (ann.type === "ellipse") {
+      group.appendChild(svgHitEllipse(ann));
       group.appendChild(svgEllipse(ann, "#FFFFFF", 16));
       group.appendChild(svgEllipse(ann, "#E53935", 10));
     } else if (ann.type === "arrow") {
+      group.appendChild(svgHitArrow(ann));
       group.appendChild(svgArrow(ann));
     }
     svg.appendChild(group);
@@ -744,6 +750,7 @@ function renderSelection() {
   selection.classList.add("is-hidden");
   draft.classList.add("is-hidden");
   selection.dataset.type = "";
+  delete selection.dataset.annotationId;
 
   if (state.action && shouldShowDraftBox(state.action)) {
     const rect = normalizedRect(state.action.origin, state.action.current);
@@ -759,6 +766,7 @@ function renderSelection() {
   if (!ann) return;
 
   selection.classList.remove("is-hidden");
+  selection.dataset.annotationId = ann.id;
   if (ann.type === "arrow") {
     const bounds = annotationBounds(ann);
     selection.dataset.type = "arrow";
@@ -996,6 +1004,18 @@ function svgRect(x, y, width, height, stroke, strokeWidth) {
   return rect;
 }
 
+function svgHitRect(x, y, width, height) {
+  const rect = document.createElementNS(SVG_NS, "rect");
+  rect.setAttribute("x", x);
+  rect.setAttribute("y", y);
+  rect.setAttribute("width", width);
+  rect.setAttribute("height", height);
+  rect.setAttribute("rx", 18);
+  rect.setAttribute("fill", "rgba(0,0,0,0.001)");
+  rect.setAttribute("pointer-events", "all");
+  return rect;
+}
+
 function svgEllipse(ann, stroke, strokeWidth) {
   const ellipse = document.createElementNS(SVG_NS, "ellipse");
   ellipse.setAttribute("cx", ann.x + ann.width / 2);
@@ -1007,6 +1027,17 @@ function svgEllipse(ann, stroke, strokeWidth) {
   ellipse.setAttribute("stroke-width", strokeWidth);
   ellipse.setAttribute("stroke-linecap", "round");
   ellipse.setAttribute("stroke-linejoin", "round");
+  return ellipse;
+}
+
+function svgHitEllipse(ann) {
+  const ellipse = document.createElementNS(SVG_NS, "ellipse");
+  ellipse.setAttribute("cx", ann.x + ann.width / 2);
+  ellipse.setAttribute("cy", ann.y + ann.height / 2);
+  ellipse.setAttribute("rx", ann.width / 2);
+  ellipse.setAttribute("ry", ann.height / 2);
+  ellipse.setAttribute("fill", "rgba(0,0,0,0.001)");
+  ellipse.setAttribute("pointer-events", "all");
   return ellipse;
 }
 
@@ -1034,6 +1065,23 @@ function svgArrow(ann) {
   polygon.setAttribute("stroke-linejoin", "round");
   polygon.setAttribute("paint-order", "stroke fill");
   return polygon;
+}
+
+function svgHitArrow(ann) {
+  // Fat transparent stroke along the shaft gives users a forgiving click band
+  // (the visible arrow polygon is too narrow to reliably hit after deselect).
+  // pointer-events="stroke" ensures a transparent stroke still receives events.
+  const line = document.createElementNS(SVG_NS, "line");
+  line.setAttribute("x1", ann.x1);
+  line.setAttribute("y1", ann.y1);
+  line.setAttribute("x2", ann.x2);
+  line.setAttribute("y2", ann.y2);
+  line.setAttribute("stroke", "transparent");
+  line.setAttribute("stroke-width", 28);
+  line.setAttribute("stroke-linecap", "round");
+  line.setAttribute("fill", "none");
+  line.setAttribute("pointer-events", "stroke");
+  return line;
 }
 
 function arrowPolygonPoints(ann) {

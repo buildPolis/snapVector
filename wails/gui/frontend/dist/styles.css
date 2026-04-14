@@ -415,8 +415,16 @@ body {
   height: 100%;
 }
 
+/* The HTML overlay sits above the SVG annotation layer in DOM order, so let
+   pointer events fall through to the arrow/rect/ellipse hit targets below.
+   Text / blur cards re-enable pointer-events on themselves. */
+.html-annotation-layer {
+  pointer-events: none;
+}
+
 .html-annotation-layer > * {
   position: absolute;
+  pointer-events: auto;
 }
 
 .overlay-grid {
