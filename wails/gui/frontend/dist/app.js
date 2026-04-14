@@ -1,4 +1,5 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
+const DEFAULT_ZOOM = 0.5;
 
 const state = {
   capture: null,
@@ -9,7 +10,7 @@ const state = {
   future: [],
   action: null,
   pointer: { x: 0, y: 0 },
-  zoom: 1,
+  zoom: DEFAULT_ZOOM,
   pan: { x: 0, y: 0 },
   document: {
     path: "",
@@ -184,7 +185,7 @@ async function captureScreen(mode = "fullscreen") {
   state.selectedId = null;
   state.history = [];
   state.future = [];
-  state.zoom = 1;
+  state.zoom = DEFAULT_ZOOM;
   state.pan = { x: 0, y: 0 };
   state.tool = plan.tool;
   syncDirtyState();
@@ -560,7 +561,7 @@ async function openDocument() {
     state.selectedId = null;
     state.history = [];
     state.future = [];
-    state.zoom = 1;
+    state.zoom = DEFAULT_ZOOM;
     state.pan = { x: 0, y: 0 };
     state.tool = "select";
     state.document.path = result.path;
