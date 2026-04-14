@@ -42,6 +42,13 @@ const hotkeys = {
   suspended: false,          // true while modal is recording
 };
 
+const prefs = {
+  draft: [],           // working copy during modal session
+  dirty: false,
+  recordingAction: null,
+  recordingBuffer: "",
+};
+
 const els = {
   captureTitle: document.getElementById("captureTitle"),
   fileMenuButton: document.getElementById("fileMenuButton"),
@@ -85,6 +92,16 @@ const els = {
   statusSelected: document.getElementById("statusSelected"),
   toast: document.getElementById("toast"),
   toolButtons: Array.from(document.querySelectorAll("[data-tool]")),
+  preferencesButton: document.getElementById("preferencesButton"),
+  preferencesModal: document.getElementById("preferencesModal"),
+  preferencesBody: document.getElementById("preferencesBody"),
+  preferencesClose: document.getElementById("preferencesClose"),
+  preferencesCancel: document.getElementById("preferencesCancel"),
+  preferencesSave: document.getElementById("preferencesSave"),
+  preferencesResetAll: document.getElementById("preferencesResetAll"),
+  preferencesFilter: document.getElementById("preferencesFilter"),
+  preferencesStatus: document.getElementById("preferencesStatus"),
+  preferencesConflict: document.getElementById("preferencesConflict"),
 };
 
 const backend = createBackend();
@@ -142,6 +159,15 @@ function bindUI() {
       closeFileMenu();
     }
   });
+
+  els.preferencesButton.addEventListener("click", () => {
+    closeFileMenu();
+    openPreferences();
+  });
+  els.preferencesClose.addEventListener("click", () => closePreferences());
+  els.preferencesCancel.addEventListener("click", () => closePreferences());
+  els.preferencesSave.addEventListener("click", () => savePreferences());
+  els.preferencesFilter.addEventListener("input", () => renderPreferences());
 
   bindInspector();
   bindHintToggles();
@@ -1387,7 +1413,154 @@ function onGlobalKeydown(event) {
   handler();
 }
 
+const ACTION_LABELS = {
+  "tool.select": "Select tool",
+  "tool.arrow": "Arrow tool",
+  "tool.rectangle": "Rectangle tool",
+  "tool.ellipse": "Ellipse tool",
+  "tool.text": "Text tool",
+  "tool.blur": "Blur tool",
+  "tool.crop": "Crop tool",
+  "edit.undo": "Undo",
+  "edit.redo": "Redo",
+  "file.open": "Open document",
+  "file.save": "Save document",
+  "file.saveAs": "Save document as…",
+  "view.zoomIn": "Zoom in",
+  "view.zoomOut": "Zoom out",
+  "view.zoomReset": "Reset zoom",
+  "export.copy": "Copy to clipboard",
+  "capture.fullscreen": "Capture full screen",
+  "capture.region": "Capture region",
+  "capture.allDisplays": "Capture all displays",
+  "app.preferences": "Open Preferences",
+};
+
+const ACTION_GROUPS = [
+  { title: "Tools", actions: ["tool.select", "tool.arrow", "tool.rectangle", "tool.ellipse", "tool.text", "tool.blur", "tool.crop"] },
+  { title: "Editing", actions: ["edit.undo", "edit.redo"] },
+  { title: "File", actions: ["file.open", "file.save", "file.saveAs"] },
+  { title: "View", actions: ["view.zoomIn", "view.zoomOut", "view.zoomReset"] },
+  { title: "Export", actions: ["export.copy"] },
+  { title: "Capture", actions: ["capture.fullscreen", "capture.region", "capture.allDisplays"] },
+  { title: "App", actions: ["app.preferences"] },
+];
+
 function openPreferences() {
-  const modal = document.getElementById("preferencesModal");
-  if (modal) modal.classList.remove("is-hidden");
+  prefs.draft = hotkeys.bindings.map((b) => ({ ...b }));
+  prefs.dirty = false;
+  prefs.recordingAction = null;
+  prefs.recordingBuffer = "";
+  els.preferencesStatus.textContent = "";
+  els.preferencesStatus.classList.remove("is-error");
+  els.preferencesFilter.value = "";
+  els.preferencesModal.classList.remove("is-hidden");
+  closeFileMenu();
+  renderPreferences();
+}
+
+function closePreferences(force = false) {
+  if (!force && prefs.dirty) {
+    const ok = confirm("You have unsaved hotkey changes. Discard them?");
+    if (!ok) return;
+  }
+  prefs.recordingAction = null;
+  hotkeys.suspended = false;
+  els.preferencesModal.classList.add("is-hidden");
+  els.preferencesConflict.classList.add("is-hidden");
+}
+
+function renderPreferences() {
+  const filter = els.preferencesFilter.value.trim().toLowerCase();
+  const byAction = new Map(prefs.draft.map((b) => [b.action, b]));
+  els.preferencesBody.innerHTML = "";
+  for (const group of ACTION_GROUPS) {
+    const rows = group.actions
+      .map((action) => ({ action, binding: byAction.get(action) }))
+      .filter(({ action, binding }) => {
+        if (!filter) return true;
+        const label = (ACTION_LABELS[action] || action).toLowerCase();
+        const combo = (binding?.combo || "").toLowerCase();
+        return label.includes(filter) || combo.includes(filter);
+      });
+    if (!rows.length) continue;
+    const groupEl = document.createElement("div");
+    groupEl.className = "hotkey-group";
+    const title = document.createElement("h3");
+    title.className = "hotkey-group-title";
+    title.textContent = group.title;
+    groupEl.append(title);
+    for (const { action, binding } of rows) {
+      const row = document.createElement("div");
+      row.className = "hotkey-row";
+      const label = document.createElement("span");
+      label.textContent = ACTION_LABELS[action] || action;
+      const field = document.createElement("button");
+      field.type = "button";
+      field.className = "hotkey-field";
+      field.dataset.action = action;
+      updateFieldDisplay(field, binding?.combo || "");
+      field.addEventListener("click", () => startRecording(action, field));
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "hotkey-clear";
+      clear.textContent = "✕";
+      clear.title = "Clear hotkey";
+      clear.addEventListener("click", () => clearBinding(action));
+      row.append(label, field, clear);
+      groupEl.append(row);
+    }
+    els.preferencesBody.append(groupEl);
+  }
+}
+
+function updateFieldDisplay(fieldEl, combo) {
+  fieldEl.textContent = combo ? SV_Hotkey.comboToDisplay(combo, IS_MAC) : "Unbound";
+  fieldEl.classList.toggle("is-unbound", !combo);
+  fieldEl.classList.remove("is-recording");
+}
+
+function startRecording(action, fieldEl) {
+  // Task 8 will implement the real recorder. For now: cancel any previous
+  // recording (defensive) and mark this field active so the user sees
+  // feedback. The capture listener comes in Task 8.
+  if (prefs.recordingAction) cancelRecording();
+  prefs.recordingAction = action;
+  prefs.recordingBuffer = "";
+  hotkeys.suspended = true;
+  fieldEl.classList.add("is-recording");
+  fieldEl.textContent = "Press keys…";
+}
+
+function cancelRecording() {
+  if (!prefs.recordingAction) return;
+  prefs.recordingAction = null;
+  hotkeys.suspended = false;
+  renderPreferences();
+}
+
+function clearBinding(action) {
+  setDraftCombo(action, "");
+}
+
+function setDraftCombo(action, combo) {
+  const row = prefs.draft.find((b) => b.action === action);
+  if (!row) return;
+  if (row.combo === combo) return;
+  row.combo = combo;
+  prefs.dirty = true;
+  renderPreferences();
+}
+
+async function savePreferences() {
+  try {
+    await backend.saveHotkeys(prefs.draft);
+    applyHotkeyBindings(prefs.draft);
+    prefs.dirty = false;
+    closePreferences(true);
+    showToast("已儲存熱鍵設定");
+  } catch (err) {
+    els.preferencesStatus.textContent = `儲存失敗：${err?.message || err}`;
+    els.preferencesStatus.classList.add("is-error");
+  }
 }
