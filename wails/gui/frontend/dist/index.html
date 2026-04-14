@@ -27,6 +27,8 @@
                 <button type="button" id="openDocumentButton" class="menu-item" role="menuitem">Open…</button>
                 <button type="button" id="saveDocumentButton" class="menu-item" role="menuitem">Save</button>
                 <button type="button" id="saveDocumentAsButton" class="menu-item" role="menuitem">Save As…</button>
+                <div class="menu-separator" role="separator"></div>
+                <button type="button" id="preferencesButton" class="menu-item" role="menuitem">Preferences…</button>
               </div>
             </div>
             <span id="documentBadge" class="document-badge">Untitled · saved</span>
@@ -244,6 +246,28 @@
     </svg>
 
     <div id="toast" class="toast is-hidden"></div>
+    <div id="preferencesModal" class="modal-overlay is-hidden" role="dialog" aria-modal="true" aria-labelledby="preferencesTitle">
+      <div class="modal-panel" role="document">
+        <header class="modal-header">
+          <h2 id="preferencesTitle">Preferences › Hotkeys</h2>
+          <button type="button" id="preferencesClose" class="icon-btn" aria-label="Close preferences">✕</button>
+        </header>
+        <div class="modal-toolbar">
+          <input type="search" id="preferencesFilter" class="modal-filter" placeholder="Filter actions or hotkeys…" />
+          <button type="button" id="preferencesResetAll" class="ghost-btn">Reset all defaults</button>
+        </div>
+        <div class="modal-body" id="preferencesBody"></div>
+        <footer class="modal-footer">
+          <span id="preferencesStatus" class="modal-status"></span>
+          <div class="modal-actions">
+            <button type="button" id="preferencesCancel" class="ghost-btn">Cancel</button>
+            <button type="button" id="preferencesSave" class="ghost-btn is-primary">Save</button>
+          </div>
+        </footer>
+      </div>
+      <div id="preferencesConflict" class="conflict-popover is-hidden" role="alertdialog" aria-modal="true"></div>
+    </div>
+    <script src="./hotkey-utils.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
