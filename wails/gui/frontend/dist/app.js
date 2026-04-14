@@ -167,7 +167,10 @@ function bindUI() {
   els.preferencesClose.addEventListener("click", () => closePreferences());
   els.preferencesCancel.addEventListener("click", () => closePreferences());
   els.preferencesSave.addEventListener("click", () => savePreferences());
-  els.preferencesFilter.addEventListener("input", () => renderPreferences());
+  els.preferencesFilter.addEventListener("input", () => {
+    resetRecordingState();
+    renderPreferences();
+  });
 
   bindInspector();
   bindHintToggles();
@@ -1464,8 +1467,7 @@ function closePreferences(force = false) {
     const ok = confirm("You have unsaved hotkey changes. Discard them?");
     if (!ok) return;
   }
-  prefs.recordingAction = null;
-  hotkeys.suspended = false;
+  resetRecordingState();
   els.preferencesModal.classList.add("is-hidden");
   els.preferencesConflict.classList.add("is-hidden");
 }
@@ -1532,10 +1534,16 @@ function startRecording(action, fieldEl) {
   fieldEl.textContent = "Press keys…";
 }
 
-function cancelRecording() {
+function resetRecordingState() {
   if (!prefs.recordingAction) return;
   prefs.recordingAction = null;
+  prefs.recordingBuffer = "";
   hotkeys.suspended = false;
+}
+
+function cancelRecording() {
+  if (!prefs.recordingAction) return;
+  resetRecordingState();
   renderPreferences();
 }
 
@@ -1549,6 +1557,7 @@ function setDraftCombo(action, combo) {
   if (row.combo === combo) return;
   row.combo = combo;
   prefs.dirty = true;
+  resetRecordingState();
   renderPreferences();
 }
 
