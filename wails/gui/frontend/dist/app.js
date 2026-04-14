@@ -1,5 +1,18 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 const DEFAULT_ZOOM = 0.5;
+const DEFAULT_STROKE_WIDTH = 10;
+const BASELINE_ARROW_TAIL_X = 6;
+const BASELINE_ARROW_TAIL_Y = 60;
+const BASELINE_ARROW_TIP_X = 228;
+const BASELINE_ARROW_TIP_Y = 60;
+const BASELINE_ARROW_POINTS = [
+  [6, 60],
+  [132, 48],
+  [132, 24],
+  [228, 60],
+  [132, 96],
+  [132, 72],
+];
 
 const state = {
   capture: null,
@@ -974,41 +987,39 @@ function svgEllipse(ann, stroke, strokeWidth) {
 }
 
 function svgArrow(ann) {
-  const group = document.createElementNS(SVG_NS, "g");
-  const line = document.createElementNS(SVG_NS, "line");
-  line.setAttribute("x1", ann.x1);
-  line.setAttribute("y1", ann.y1);
-  line.setAttribute("x2", ann.x2);
-  line.setAttribute("y2", ann.y2);
-  line.setAttribute("stroke", "#FFFFFF");
-  line.setAttribute("stroke-width", 16);
-  line.setAttribute("stroke-linecap", "round");
-  group.appendChild(line);
+  const strokeWidth = ann.strokeWidth ?? DEFAULT_STROKE_WIDTH;
+  const polygon = document.createElementNS(SVG_NS, "polygon");
+  polygon.setAttribute("points", arrowPolygonPoints(ann).map(([x, y]) => `${x},${y}`).join(" "));
+  polygon.setAttribute("fill", "#E53935");
+  polygon.setAttribute("stroke", "#FFFFFF");
+  polygon.setAttribute("stroke-width", 6 * (strokeWidth / DEFAULT_STROKE_WIDTH));
+  polygon.setAttribute("stroke-linejoin", "round");
+  polygon.setAttribute("paint-order", "stroke fill");
+  return polygon;
+}
 
-  const inner = document.createElementNS(SVG_NS, "line");
-  inner.setAttribute("x1", ann.x1);
-  inner.setAttribute("y1", ann.y1);
-  inner.setAttribute("x2", ann.x2);
-  inner.setAttribute("y2", ann.y2);
-  inner.setAttribute("stroke", "#E53935");
-  inner.setAttribute("stroke-width", 10);
-  inner.setAttribute("stroke-linecap", "round");
-  group.appendChild(inner);
+function arrowPolygonPoints(ann) {
+  const dx = ann.x2 - ann.x1;
+  const dy = ann.y2 - ann.y1;
+  const length = Math.hypot(dx, dy);
+  const ux = dx / length;
+  const uy = dy / length;
+  const strokeWidth = ann.strokeWidth ?? DEFAULT_STROKE_WIDTH;
+  const sx = length / (BASELINE_ARROW_TIP_X - BASELINE_ARROW_TAIL_X);
+  let sy = strokeWidth / DEFAULT_STROKE_WIDTH;
+  if (sy <= 0) sy = 1;
 
-  const head = document.createElementNS(SVG_NS, "polygon");
-  const angle = Math.atan2(ann.y2 - ann.y1, ann.x2 - ann.x1);
-  const len = 32;
-  const wing = 16;
-  const p1 = [ann.x2, ann.y2];
-  const p2 = [ann.x2 - len * Math.cos(angle) + wing * Math.sin(angle), ann.y2 - len * Math.sin(angle) - wing * Math.cos(angle)];
-  const p3 = [ann.x2 - len * Math.cos(angle) - wing * Math.sin(angle), ann.y2 - len * Math.sin(angle) + wing * Math.cos(angle)];
-  head.setAttribute("points", `${p1[0]},${p1[1]} ${p2[0]},${p2[1]} ${p3[0]},${p3[1]}`);
-  head.setAttribute("fill", "#E53935");
-  head.setAttribute("stroke", "#FFFFFF");
-  head.setAttribute("stroke-width", 6);
-  head.setAttribute("paint-order", "stroke fill");
-  group.appendChild(head);
-  return group;
+  const a = ux * sx;
+  const b = uy * sx;
+  const c = -uy * sy;
+  const d = ux * sy;
+  const e = ann.x1 - a * BASELINE_ARROW_TAIL_X - c * BASELINE_ARROW_TAIL_Y;
+  const f = ann.y1 - b * BASELINE_ARROW_TAIL_X - d * BASELINE_ARROW_TAIL_Y;
+
+  return BASELINE_ARROW_POINTS.map(([x, y]) => [
+    a * x + c * y + e,
+    b * x + d * y + f,
+  ]);
 }
 
 function createBackend() {

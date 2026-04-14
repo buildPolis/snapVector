@@ -123,8 +123,8 @@
     </symbol>
 
     <symbol id="icon-arrow" viewBox="0 0 24 24">
-      <path class="sv-icon" d="M5 19c5 0 11-4 14-14" />
-      <path class="sv-icon" d="M13 5h6v6" />
+      <path class="sv-icon" d="M5 19 19 5" />
+      <path class="sv-icon" d="M12 5h7v7" />
     </symbol>
 
     <symbol id="icon-rectangle" viewBox="0 0 24 24">
