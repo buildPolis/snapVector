@@ -343,6 +343,8 @@ function onPointerDown(event) {
       text: "輸入文字",
       variant: "solid",
       fontSize: 24,
+      width: 220,
+      height: 56,
       maxWidth: 220,
     });
     state.selectedId = id;
@@ -527,6 +529,10 @@ function resizeAnnotation(annotationId, handle, snapshot, point) {
   ann.y = next.y;
   ann.width = next.width;
   ann.height = next.height;
+  // Text renders via style.width (which falls back to maxWidth for legacy
+  // docs) and also exports maxWidth through toPayload — keep the two in
+  // sync so a width drag survives save/load and the SVG export matches.
+  if (ann.type === "text") ann.maxWidth = next.width;
 }
 
 function updateSelected(patch) {
@@ -804,7 +810,9 @@ function renderHTMLAnnotations() {
       div.style.left = `${ann.x}px`;
       div.style.top = `${ann.y}px`;
       div.style.fontSize = `${ann.fontSize || 24}px`;
-      div.style.maxWidth = `${ann.maxWidth || 220}px`;
+      const widthPx = ann.width || ann.maxWidth || 220;
+      div.style.width = `${widthPx}px`;
+      if (ann.height) div.style.minHeight = `${ann.height}px`;
       div.textContent = ann.text;
       els.htmlAnnotationLayer.appendChild(div);
       return;
@@ -887,7 +895,6 @@ function toggleArrowHandles(enabled) {
 function renderInspector() {
   const ann = selectedAnnotation();
   els.selectedMeta.innerHTML = "";
-  els.geometryFields.innerHTML = "";
 
   const emptyHint = document.getElementById("inspectorEmpty");
   const sectionSelected = document.getElementById("sectionSelected");
@@ -897,6 +904,8 @@ function renderInspector() {
   const appBody = document.querySelector(".app-body");
 
   if (!ann) {
+    els.geometryFields.innerHTML = "";
+    els.geometryFields.dataset.sig = "";
     disableInspector(true);
     appBody?.classList.add("inspector-collapsed");
     emptyHint?.classList.add("is-hidden");
@@ -921,19 +930,41 @@ function renderInspector() {
     els.selectedMeta.appendChild(chip);
   });
 
-  if (ann.type === "arrow") {
-    [["x1", ann.x1], ["y1", ann.y1], ["x2", ann.x2], ["y2", ann.y2]].forEach(([key, value]) => addField(key, value));
-  } else {
-    [["x", ann.x], ["y", ann.y], ["width", ann.width], ["height", ann.height]].forEach(([key, value]) => addField(key, value));
-  }
+  const geometry = ann.type === "arrow"
+    ? [["x1", ann.x1], ["y1", ann.y1], ["x2", ann.x2], ["y2", ann.y2]]
+    : [["x", ann.x], ["y", ann.y], ["width", ann.width], ["height", ann.height]];
+  syncGeometryFields(geometry);
 
-  els.textContent.value = ann.type === "text" ? ann.text : "";
-  els.textVariant.value = ann.type === "text" ? ann.variant || "solid" : "solid";
-  els.textFontSize.value = ann.type === "text" ? ann.fontSize || 24 : 24;
-  els.textMaxWidth.value = ann.type === "text" ? ann.maxWidth || 0 : 0;
-  els.blurRadius.value = ann.type === "blur" ? ann.blurRadius || 12 : 12;
-  els.cornerRadius.value = ann.type === "blur" ? ann.cornerRadius || 18 : 18;
-  els.feather.value = ann.type === "blur" ? ann.feather || 12 : 12;
+  syncInputValue(els.textContent, ann.type === "text" ? ann.text : "");
+  syncInputValue(els.textVariant, ann.type === "text" ? ann.variant || "solid" : "solid");
+  syncInputValue(els.textFontSize, ann.type === "text" ? ann.fontSize || 24 : 24);
+  syncInputValue(els.textMaxWidth, ann.type === "text" ? ann.maxWidth || 0 : 0);
+  syncInputValue(els.blurRadius, ann.type === "blur" ? ann.blurRadius || 12 : 12);
+  syncInputValue(els.cornerRadius, ann.type === "blur" ? ann.cornerRadius || 18 : 18);
+  syncInputValue(els.feather, ann.type === "blur" ? ann.feather || 12 : 12);
+}
+
+// Skip writing to an input the user is currently editing — otherwise every
+// keystroke handler's render() would clobber focus or cursor position and
+// force the user to click back in between digits.
+function syncInputValue(input, value) {
+  if (!input) return;
+  if (document.activeElement === input) return;
+  if (input.value !== String(value)) input.value = value;
+}
+
+function syncGeometryFields(entries) {
+  const sig = entries.map(([key]) => key).join(",");
+  if (els.geometryFields.dataset.sig !== sig) {
+    els.geometryFields.innerHTML = "";
+    els.geometryFields.dataset.sig = sig;
+    entries.forEach(([key, value]) => addField(key, value));
+    return;
+  }
+  // Keys unchanged (same annotation type selected) — update existing input
+  // values in place so focus and caret survive a re-render mid-typing.
+  const inputs = els.geometryFields.querySelectorAll("input");
+  entries.forEach(([, value], idx) => syncInputValue(inputs[idx], Math.round(value)));
 }
 
 function addField(key, value) {
