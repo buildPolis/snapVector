@@ -8,7 +8,9 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -444,11 +446,22 @@ func TestAppSaveHotkeysPersistsAndReloads(t *testing.T) {
 }
 
 func TestAppResetHotkeysDeletesFile(t *testing.T) {
+	dir := t.TempDir()
 	app := NewApp()
-	app.hotkeyStore = &HotkeyStore{configDir: t.TempDir()}
+	app.hotkeyStore = &HotkeyStore{configDir: dir}
 
-	app.SaveHotkeys(DefaultHotkeys())
-	if _, err := app.ResetHotkeys(); err != nil {
+	if err := app.SaveHotkeys(DefaultHotkeys()); err != nil {
+		t.Fatalf("SaveHotkeys err = %v", err)
+	}
+	got, err := app.ResetHotkeys()
+	if err != nil {
 		t.Fatalf("ResetHotkeys err = %v", err)
+	}
+	if len(got) != len(ActionCatalog) {
+		t.Fatalf("Reset returned %d bindings, want %d", len(got), len(ActionCatalog))
+	}
+	path := filepath.Join(dir, "SnapVector", "hotkeys.json")
+	if _, statErr := os.Stat(path); !errors.Is(statErr, fs.ErrNotExist) {
+		t.Fatalf("hotkeys.json still exists after Reset: stat err = %v", statErr)
 	}
 }
