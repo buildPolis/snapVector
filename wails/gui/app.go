@@ -341,6 +341,9 @@ func ensureDocumentExtension(path string) string {
 	if path == "" || strings.HasSuffix(strings.ToLower(path), ".sv.json") {
 		return path
 	}
+	if strings.HasSuffix(strings.ToLower(path), ".json") {
+		return path[:len(path)-len(".json")] + ".sv.json"
+	}
 	return path + ".sv.json"
 }
 

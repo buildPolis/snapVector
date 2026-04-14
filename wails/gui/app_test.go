@@ -298,6 +298,36 @@ func TestSaveDocumentAsPromptsAndAppendsExtension(t *testing.T) {
 	}
 }
 
+func TestSaveDocumentAsReplacesBareJSONExtension(t *testing.T) {
+	app := NewApp()
+	app.saveFileDialog = func(_ context.Context, opts wailsruntime.SaveDialogOptions) (string, error) {
+		if opts.DefaultFilename != "capture-01.sv.json" {
+			t.Fatalf("default filename = %q", opts.DefaultFilename)
+		}
+		return "/tmp/capture-01.json", nil
+	}
+
+	var gotPath string
+	app.writeFile = func(path string, data []byte, mode os.FileMode) error {
+		gotPath = path
+		return nil
+	}
+
+	result, err := app.SaveDocumentAs("capture-01", `{"annotations":[]}`)
+	if err != nil {
+		t.Fatalf("SaveDocumentAs returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected save-as result")
+	}
+	if result.Path != "/tmp/capture-01.sv.json" || result.Name != "capture-01.sv.json" {
+		t.Fatalf("unexpected save-as result: %+v", result)
+	}
+	if gotPath != "/tmp/capture-01.sv.json" {
+		t.Fatalf("write path = %q", gotPath)
+	}
+}
+
 func TestSaveDocumentAsCancelReturnsNil(t *testing.T) {
 	app := NewApp()
 	app.saveFileDialog = func(context.Context, wailsruntime.SaveDialogOptions) (string, error) {
