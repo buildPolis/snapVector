@@ -775,7 +775,8 @@ function renderVectorAnnotations() {
       group.appendChild(svgEllipse(ann, "#E53935", 10));
     } else if (ann.type === "arrow") {
       group.appendChild(svgHitArrow(ann));
-      group.appendChild(svgArrow(ann));
+      group.appendChild(svgArrow(ann, "#FFFFFF", "#FFFFFF"));
+      group.appendChild(svgArrow(ann, "#E53935"));
     }
     svg.appendChild(group);
   });
@@ -793,7 +794,8 @@ function renderVectorAnnotations() {
         group.appendChild(svgEllipse(draft, "#FFFFFF", 16));
         group.appendChild(svgEllipse(draft, "#E53935", 10));
       } else if (draft.type === "arrow") {
-        group.appendChild(svgArrow(draft));
+        group.appendChild(svgArrow(draft, "#FFFFFF", "#FFFFFF"));
+        group.appendChild(svgArrow(draft, "#E53935"));
       }
       svg.appendChild(group);
     }
@@ -1197,30 +1199,19 @@ function draftVectorAnnotation(tool, origin, current) {
   return null;
 }
 
-function svgArrow(ann) {
+function svgArrow(ann, strokeColor, outlineColor, outlineExtra) {
   const strokeWidth = ann.strokeWidth ?? DEFAULT_STROKE_WIDTH;
   const pointsStr = arrowPolygonPoints(ann).map(([x, y]) => `${x},${y}`).join(" ");
-  const sw = 6 * (strokeWidth / DEFAULT_STROKE_WIDTH);
 
-  // Two-layer approach: white outline behind, red fill on top.
-  // Avoids paint-order which renders inconsistently across WebKit builds.
-  const g = document.createElementNS(SVG_NS, "g");
-
-  const outline = document.createElementNS(SVG_NS, "polygon");
-  outline.setAttribute("points", pointsStr);
-  outline.setAttribute("fill", "#E53935");
-  outline.setAttribute("stroke", "#FFFFFF");
-  outline.setAttribute("stroke-width", sw);
-  outline.setAttribute("stroke-linejoin", "round");
-
-  const fill = document.createElementNS(SVG_NS, "polygon");
-  fill.setAttribute("points", pointsStr);
-  fill.setAttribute("fill", "#E53935");
-  fill.setAttribute("stroke", "none");
-
-  g.appendChild(outline);
-  g.appendChild(fill);
-  return g;
+  const polygon = document.createElementNS(SVG_NS, "polygon");
+  polygon.setAttribute("points", pointsStr);
+  polygon.setAttribute("fill", strokeColor);
+  if (outlineColor) {
+    polygon.setAttribute("stroke", outlineColor);
+    polygon.setAttribute("stroke-width", outlineExtra ?? (8 * (strokeWidth / DEFAULT_STROKE_WIDTH)));
+    polygon.setAttribute("stroke-linejoin", "round");
+  }
+  return polygon;
 }
 
 function svgHitArrow(ann) {
