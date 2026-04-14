@@ -13,6 +13,38 @@ go build -tags production -o ./build/bin/snapvector-production .
 - `snapvector` is the normal Go build that still supports all CLI workflows.
 - `snapvector-production` is the real Wails GUI build. On macOS this now links `UniformTypeIdentifiers` from code, so the production tag build no longer needs manual `CGO_LDFLAGS`.
 
+### Linux (Ubuntu 24.04+)
+
+Ubuntu 24.04 ships `webkit2gtk-4.1` instead of `4.0`. Wails requires the `webkit2_41` build tag.
+This is already set in `wails.json` via `"build:tags"`, so `wails dev` / `wails build` pick it up automatically.
+
+**System dependencies:**
+
+```bash
+sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
+  librsvg2-bin xclip
+```
+
+| Package | Purpose |
+|---|---|
+| `libgtk-3-dev` | GTK3 headers for Wails GUI |
+| `libwebkit2gtk-4.1-dev` | WebKit headers for Wails GUI |
+| `librsvg2-bin` | `rsvg-convert` for SVG→PNG/JPG/PDF export |
+| `xclip` | Clipboard write (X11); use `wl-clipboard` on Wayland |
+
+**Dev mode:**
+
+```bash
+source ~/.nvm/nvm.sh && nvm use 24  # if using nvm
+wails dev                            # webkit2_41 tag is auto-applied
+```
+
+**Production build:**
+
+```bash
+wails build -tags "webkit2_41 production"
+```
+
 ## CLI usage
 
 ```bash
@@ -32,10 +64,11 @@ CLI stdout always emits a single JSON document that follows the PRD top-level co
 
 ## Implementation notes
 
-- The macOS capture backend currently shells out to `/usr/sbin/screencapture`.
+- The macOS capture backend shells out to `/usr/sbin/screencapture`.
+- The Linux capture backend uses D-Bus `org.freedesktop.portal.Screenshot` with `gnome-screenshot`/`grim` fallback.
 - JSON `code` values are the machine-readable API contract; shell exit codes remain `0` or `1`.
-- Linux and Windows currently return structured unsupported-platform errors for capture.
 - The Wails GUI production build on macOS links `UniformTypeIdentifiers` from code, so `go build -tags production` works without extra linker flags.
+- Linux global hotkeys use D-Bus `org.freedesktop.portal.GlobalShortcuts` (requires `xdg-desktop-portal` ≥ 1.17). Falls back gracefully if the portal is unavailable.
 
 ## Current coverage
 
@@ -44,8 +77,8 @@ Implemented now:
 - canonical `--inject-svg` payload parsing and validation
 - symbol-backed SVG output for arrow, rectangle, ellipse, text, and blur
 - single-file SVG with embedded base screenshot
-- macOS export conversion for `svg`, `png`, `jpg`, and `pdf`
-- macOS clipboard output for `svg`, `png`, `jpg`, and `pdf`
+- macOS and Linux export conversion for `svg`, `png`, `jpg`, and `pdf`
+- macOS and Linux clipboard output for `svg`, `png`, `jpg`, and `pdf`
 - `captureRegion` metadata in CLI responses when geometry is known
 - Wails GUI bootstrap through the same binary entrypoint
 - static HTML/CSS/JS GUI shell with capture canvas, tool rail, selection, resize handles, inspector, undo/redo, zoom, and pan
@@ -55,7 +88,7 @@ Still not shipped:
 
 - desktop-wide region-selection overlay before capture
 - fully verified native Wails end-to-end export interaction from the visible app window
-- Linux/Windows native capture backends
+- Windows native capture backend
 
 ## GUI usage
 
@@ -85,7 +118,7 @@ Record measured latency instead of assuming PRD compliance.
 | platform | status | notes |
 |---|---|---|
 | darwin | ✅ Phase 1 backend | Requires Screen Recording permission. |
-| linux | 🚧 stub | Returns structured unsupported-platform error. |
+| linux | ✅ Phase 1 backend | D-Bus portal capture, `rsvg-convert` export, `xclip`/`wl-copy` clipboard, global hotkeys via portal. |
 | windows | 🚧 stub | Returns structured unsupported-platform error. |
 
 ## Hotkeys
