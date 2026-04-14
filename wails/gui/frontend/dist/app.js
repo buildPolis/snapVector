@@ -173,6 +173,25 @@ function bindUI() {
     renderPreferences();
   });
 
+  els.preferencesResetAll.addEventListener("click", async () => {
+    if (!confirm("Reset all hotkeys to defaults?")) return;
+    try {
+      const defaults = await backend.resetHotkeys();
+      prefs.draft = defaults.map((b) => ({ ...b }));
+      prefs.dirty = false;
+      applyHotkeyBindings(defaults);
+      renderPreferences();
+      showToast("已還原為預設熱鍵");
+    } catch (err) {
+      els.preferencesStatus.textContent = `還原失敗：${err?.message || err}`;
+      els.preferencesStatus.classList.add("is-error");
+    }
+  });
+
+  els.preferencesModal.addEventListener("click", (event) => {
+    if (event.target === els.preferencesModal) closePreferences();
+  });
+
   bindInspector();
   bindHintToggles();
   bindCanvasResize();

@@ -87,3 +87,22 @@ Record measured latency instead of assuming PRD compliance.
 | darwin | ✅ Phase 1 backend | Requires Screen Recording permission. |
 | linux | 🚧 stub | Returns structured unsupported-platform error. |
 | windows | 🚧 stub | Returns structured unsupported-platform error. |
+
+## Hotkeys
+
+Defaults cover tools, editing, capture, zoom, and export actions.
+Customize via **File → Preferences…** (or press `Cmd+,` / `Ctrl+,`).
+
+Settings live at:
+
+- macOS: `~/Library/Application Support/SnapVector/hotkeys.json`
+- Linux: `~/.config/SnapVector/hotkeys.json`
+- Windows: `%APPDATA%\SnapVector\hotkeys.json`
+
+Delete the file (or click **Reset all defaults** in Preferences) to restore defaults.
+
+### Frontend unit tests
+
+```bash
+node --test wails/gui/frontend/dist/hotkey-utils.test.js
+```
