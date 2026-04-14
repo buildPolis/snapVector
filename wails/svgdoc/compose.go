@@ -161,7 +161,10 @@ func renderArrow(idx int, ann annotation.Annotation) renderedAnnotation {
 	height := maxY - minY + padding*2
 
 	def := fmt.Sprintf(
-		`<symbol id="%s" viewBox="0 0 %s %s"><polygon points="%s" fill="%s" stroke="%s" stroke-width="%s" stroke-linecap="round" stroke-linejoin="round" paint-order="stroke fill"/></symbol>`,
+		`<symbol id="%s" viewBox="0 0 %s %s">`+
+			`<polygon points="%s" fill="%s" stroke="%s" stroke-width="%s" stroke-linejoin="round"/>`+
+			`<polygon points="%s" fill="%s" stroke="none"/>`+
+			`</symbol>`,
 		symbolID,
 		formatFloat(width),
 		formatFloat(height),
@@ -169,6 +172,8 @@ func renderArrow(idx int, ann annotation.Annotation) renderedAnnotation {
 		quoteAttr(ann.StrokeColor),
 		quoteAttr(ann.OutlineColor),
 		formatFloat(6*(ann.StrokeWidth/annotation.DefaultStrokeWidth)),
+		polygon.String(),
+		quoteAttr(ann.StrokeColor),
 	)
 	use := fmt.Sprintf(`<use href="#%s" x="%s" y="%s" width="%s" height="%s"/>`,
 		symbolID,

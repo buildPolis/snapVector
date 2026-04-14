@@ -1199,14 +1199,28 @@ function draftVectorAnnotation(tool, origin, current) {
 
 function svgArrow(ann) {
   const strokeWidth = ann.strokeWidth ?? DEFAULT_STROKE_WIDTH;
-  const polygon = document.createElementNS(SVG_NS, "polygon");
-  polygon.setAttribute("points", arrowPolygonPoints(ann).map(([x, y]) => `${x},${y}`).join(" "));
-  polygon.setAttribute("fill", "#E53935");
-  polygon.setAttribute("stroke", "#FFFFFF");
-  polygon.setAttribute("stroke-width", 6 * (strokeWidth / DEFAULT_STROKE_WIDTH));
-  polygon.setAttribute("stroke-linejoin", "round");
-  polygon.setAttribute("paint-order", "stroke fill");
-  return polygon;
+  const pointsStr = arrowPolygonPoints(ann).map(([x, y]) => `${x},${y}`).join(" ");
+  const sw = 6 * (strokeWidth / DEFAULT_STROKE_WIDTH);
+
+  // Two-layer approach: white outline behind, red fill on top.
+  // Avoids paint-order which renders inconsistently across WebKit builds.
+  const g = document.createElementNS(SVG_NS, "g");
+
+  const outline = document.createElementNS(SVG_NS, "polygon");
+  outline.setAttribute("points", pointsStr);
+  outline.setAttribute("fill", "#E53935");
+  outline.setAttribute("stroke", "#FFFFFF");
+  outline.setAttribute("stroke-width", sw);
+  outline.setAttribute("stroke-linejoin", "round");
+
+  const fill = document.createElementNS(SVG_NS, "polygon");
+  fill.setAttribute("points", pointsStr);
+  fill.setAttribute("fill", "#E53935");
+  fill.setAttribute("stroke", "none");
+
+  g.appendChild(outline);
+  g.appendChild(fill);
+  return g;
 }
 
 function svgHitArrow(ann) {
