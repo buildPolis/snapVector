@@ -682,6 +682,25 @@ function renderVectorAnnotations() {
     }
     svg.appendChild(group);
   });
+
+  if (state.action?.kind === "draw") {
+    const draft = draftVectorAnnotation(state.action.tool, state.action.origin, state.action.current);
+    if (draft) {
+      const group = document.createElementNS(SVG_NS, "g");
+      group.dataset.annotationId = "draft";
+      group.style.opacity = "0.88";
+      if (draft.type === "rectangle") {
+        group.appendChild(svgRect(draft.x, draft.y, draft.width, draft.height, "#FFFFFF", draft.strokeWidth ?? 16));
+        group.appendChild(svgRect(draft.x, draft.y, draft.width, draft.height, "#E53935", draft.strokeWidth ?? 10));
+      } else if (draft.type === "ellipse") {
+        group.appendChild(svgEllipse(draft, "#FFFFFF", 16));
+        group.appendChild(svgEllipse(draft, "#E53935", 10));
+      } else if (draft.type === "arrow") {
+        group.appendChild(svgArrow(draft));
+      }
+      svg.appendChild(group);
+    }
+  }
 }
 
 function renderHTMLAnnotations() {
@@ -726,7 +745,7 @@ function renderSelection() {
   draft.classList.add("is-hidden");
   selection.dataset.type = "";
 
-  if (state.action && (state.action.kind === "draw" || state.action.kind === "crop")) {
+  if (state.action && shouldShowDraftBox(state.action)) {
     const rect = normalizedRect(state.action.origin, state.action.current);
     if (rect.width > 1 && rect.height > 1) {
       draft.classList.remove("is-hidden");
@@ -920,6 +939,11 @@ function normalizedRect(origin, current) {
   };
 }
 
+function shouldShowDraftBox(action) {
+  if (action.kind === "crop") return true;
+  return action.kind === "draw" && ["rectangle", "blur"].includes(action.tool);
+}
+
 function changeZoom(delta) {
   state.zoom = clamp(state.zoom + delta, 0.5, 3);
   render();
@@ -984,6 +1008,20 @@ function svgEllipse(ann, stroke, strokeWidth) {
   ellipse.setAttribute("stroke-linecap", "round");
   ellipse.setAttribute("stroke-linejoin", "round");
   return ellipse;
+}
+
+function draftVectorAnnotation(tool, origin, current) {
+  if (tool === "arrow") {
+    if (origin.x === current.x && origin.y === current.y) return null;
+    return { type: "arrow", x1: origin.x, y1: origin.y, x2: current.x, y2: current.y };
+  }
+
+  const rect = normalizedRect(origin, current);
+  if (rect.width <= 1 || rect.height <= 1) return null;
+  if (tool === "rectangle" || tool === "ellipse") {
+    return { type: tool, x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  }
+  return null;
 }
 
 function svgArrow(ann) {
