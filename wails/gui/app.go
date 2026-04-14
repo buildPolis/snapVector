@@ -31,6 +31,7 @@ type App struct {
 	showWindow      func(context.Context)
 	preCaptureDelay time.Duration
 	postCaptureHold time.Duration
+	hotkeyStore     *HotkeyStore
 }
 
 type CaptureResult struct {
@@ -76,6 +77,7 @@ func NewApp() *App {
 		showWindow:      wailsruntime.WindowShow,
 		preCaptureDelay: 250 * time.Millisecond,
 		postCaptureHold: 120 * time.Millisecond,
+		hotkeyStore:     NewHotkeyStore(),
 	}
 }
 
@@ -355,4 +357,20 @@ func fileDialogFilters() []wailsruntime.FileFilter {
 	return []wailsruntime.FileFilter{
 		{DisplayName: "SnapVector Documents (*.sv.json, *.json)", Pattern: "*.json"},
 	}
+}
+
+func (a *App) GetHotkeys() ([]Hotkey, error) {
+	return a.hotkeyStore.Load()
+}
+
+func (a *App) SaveHotkeys(bindings []Hotkey) error {
+	return a.hotkeyStore.Save(bindings)
+}
+
+func (a *App) ResetHotkeys() ([]Hotkey, error) {
+	return a.hotkeyStore.Reset()
+}
+
+func (a *App) DefaultHotkeys() []Hotkey {
+	return DefaultHotkeys()
 }

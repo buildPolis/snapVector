@@ -411,3 +411,44 @@ func mustPNG(t *testing.T) []byte {
 
 	return buf.Bytes()
 }
+
+func TestAppGetHotkeysReturnsDefaultsFirstRun(t *testing.T) {
+	app := NewApp()
+	app.hotkeyStore = &HotkeyStore{configDir: t.TempDir()}
+
+	got, err := app.GetHotkeys()
+	if err != nil {
+		t.Fatalf("GetHotkeys err = %v", err)
+	}
+	if len(got) != len(ActionCatalog) {
+		t.Fatalf("len = %d, want %d", len(got), len(ActionCatalog))
+	}
+}
+
+func TestAppSaveHotkeysPersistsAndReloads(t *testing.T) {
+	app := NewApp()
+	app.hotkeyStore = &HotkeyStore{configDir: t.TempDir()}
+
+	in := DefaultHotkeys()
+	in[0].Combo = "mod+alt+v"
+	if err := app.SaveHotkeys(in); err != nil {
+		t.Fatalf("SaveHotkeys err = %v", err)
+	}
+	got, err := app.GetHotkeys()
+	if err != nil {
+		t.Fatalf("GetHotkeys err = %v", err)
+	}
+	if got[0].Combo != "mod+alt+v" {
+		t.Fatalf("combo = %q, want mod+alt+v", got[0].Combo)
+	}
+}
+
+func TestAppResetHotkeysDeletesFile(t *testing.T) {
+	app := NewApp()
+	app.hotkeyStore = &HotkeyStore{configDir: t.TempDir()}
+
+	app.SaveHotkeys(DefaultHotkeys())
+	if _, err := app.ResetHotkeys(); err != nil {
+		t.Fatalf("ResetHotkeys err = %v", err)
+	}
+}
