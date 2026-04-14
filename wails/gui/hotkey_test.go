@@ -55,6 +55,8 @@ func TestValidateCombo(t *testing.T) {
 		{"mod+mod+z", true},
 		{"z+mod", true},
 		{"shift", true},
+		{"mod+ ", true},     // literal space in main key
+		{"mod+\t", true},    // tab in main key
 	}
 	for _, c := range cases {
 		err := ValidateCombo(c.combo)
@@ -83,8 +85,16 @@ func TestCanonicalComboSortsModifiers(t *testing.T) {
 	}
 }
 
-func TestCanonicalComboStripsUnknownOnInvalid(t *testing.T) {
+func TestCanonicalComboPropagatesValidationError(t *testing.T) {
 	if _, err := CanonicalCombo("MOD+z"); err == nil || !strings.Contains(err.Error(), "lowercase") {
 		t.Fatalf("expected lowercase error, got %v", err)
+	}
+}
+
+func TestDefaultHotkeysAllValidate(t *testing.T) {
+	for _, h := range DefaultHotkeys() {
+		if err := ValidateCombo(h.Combo); err != nil {
+			t.Errorf("%s: default combo %q invalid: %v", h.Action, h.Combo, err)
+		}
 	}
 }

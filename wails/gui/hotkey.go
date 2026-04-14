@@ -90,6 +90,9 @@ func ValidateCombo(combo string) error {
 		if i != len(parts)-1 {
 			return fmt.Errorf("main key %q must be last segment", p)
 		}
+		if strings.ContainsAny(p, " \t\n\r\v\f") {
+			return fmt.Errorf("main key %q contains whitespace", p)
+		}
 	}
 	return nil
 }
