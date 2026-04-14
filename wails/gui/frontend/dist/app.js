@@ -1482,12 +1482,12 @@ function openPreferences() {
   renderPreferences();
 }
 
-function closePreferences(force = false) {
-  if (!force && prefs.dirty) {
-    const ok = confirm("You have unsaved hotkey changes. Discard them?");
-    if (!ok) return;
-  }
+function closePreferences() {
+  // Cancel / ✕ / backdrop are explicit discard intents — no confirm prompt
+  // (native window.confirm is unreliable in the Wails WebView and the UX
+  // matches macOS System Settings / VS Code Preferences, which just close).
   resetRecordingState();
+  prefs.dirty = false;
   els.preferencesModal.classList.add("is-hidden");
   els.preferencesConflict.classList.add("is-hidden");
 }
@@ -1586,7 +1586,7 @@ async function savePreferences() {
     await backend.saveHotkeys(prefs.draft);
     applyHotkeyBindings(prefs.draft);
     prefs.dirty = false;
-    closePreferences(true);
+    closePreferences();
     showToast("已儲存熱鍵設定");
   } catch (err) {
     els.preferencesStatus.textContent = `儲存失敗：${err?.message || err}`;
