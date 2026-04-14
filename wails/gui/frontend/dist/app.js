@@ -1620,10 +1620,62 @@ function commitRecording(combo) {
 }
 
 function showConflictDialog(action, conflictAction, combo) {
-  // Placeholder: Task 9 replaces this with an interactive popover.
-  // Auto-reassign for now so the recording flow works end-to-end during
-  // manual testing.
-  reassignCombo(action, conflictAction, combo);
+  const dialog = els.preferencesConflict;
+  const comboDisplay = SV_Hotkey.comboToDisplay(combo, IS_MAC);
+  const conflictLabel = ACTION_LABELS[conflictAction] || conflictAction;
+  const actionLabel = ACTION_LABELS[action] || action;
+
+  // Build DOM via createElement (no innerHTML) to stay XSS-safe even though
+  // all values here are trusted internal labels.
+  dialog.innerHTML = "";
+  const warning = document.createElement("p");
+  const warnPrefix = document.createTextNode("⚠️  ");
+  warning.append(warnPrefix);
+  const comboStrong = document.createElement("strong");
+  comboStrong.textContent = comboDisplay;
+  warning.append(comboStrong);
+  warning.append(document.createTextNode(" is already bound to "));
+  const conflictEm = document.createElement("em");
+  conflictEm.textContent = conflictLabel;
+  warning.append(conflictEm);
+  warning.append(document.createTextNode("."));
+
+  const question = document.createElement("p");
+  question.append(document.createTextNode("Reassign it to "));
+  const actionEm = document.createElement("em");
+  actionEm.textContent = actionLabel;
+  question.append(actionEm);
+  question.append(document.createTextNode("? The previous binding will become unbound."));
+
+  const actions = document.createElement("div");
+  actions.className = "conflict-actions";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "ghost-btn";
+  cancelBtn.dataset.conflict = "cancel";
+  cancelBtn.textContent = "Cancel";
+  const reassignBtn = document.createElement("button");
+  reassignBtn.type = "button";
+  reassignBtn.className = "ghost-btn is-primary";
+  reassignBtn.dataset.conflict = "reassign";
+  reassignBtn.textContent = "Reassign";
+  actions.append(cancelBtn, reassignBtn);
+
+  dialog.append(warning, question, actions);
+  dialog.classList.remove("is-hidden");
+
+  const onClick = (event) => {
+    const choice = event.target.closest("[data-conflict]")?.dataset.conflict;
+    if (!choice) return;
+    dialog.classList.add("is-hidden");
+    dialog.removeEventListener("click", onClick);
+    if (choice === "reassign") {
+      reassignCombo(action, conflictAction, combo);
+    } else {
+      cancelRecording();
+    }
+  };
+  dialog.addEventListener("click", onClick);
 }
 
 function reassignCombo(action, conflictAction, combo) {
