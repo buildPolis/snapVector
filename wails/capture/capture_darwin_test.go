@@ -5,6 +5,8 @@ package capture
 import (
 	"bytes"
 	"context"
+	"image"
+	"image/color"
 	"image/png"
 	"testing"
 	"time"
@@ -66,5 +68,52 @@ func TestInteractiveRegionCaptureArgsRemainInteractive(t *testing.T) {
 	}
 	if !hasInteractive {
 		t.Fatalf("expected -i in interactive args: %v", args)
+	}
+}
+
+func TestComposeDisplayCapturesUsesGlobalBackingCoordinates(t *testing.T) {
+	left := image.NewRGBA(image.Rect(0, 0, 4, 2))
+	fill(left, color.RGBA{R: 255, A: 255})
+	right := image.NewRGBA(image.Rect(0, 0, 6, 3))
+	fill(right, color.RGBA{G: 255, A: 255})
+
+	raw, meta, err := composeDisplayCaptures([]displayCapture{
+		{
+			Display: darwinDisplay{Index: 1, X: 0, Y: 0, Width: 4, Height: 2},
+			Image:   left,
+		},
+		{
+			Display: darwinDisplay{Index: 2, X: -2, Y: 2, Width: 6, Height: 3},
+			Image:   right,
+		},
+	})
+	if err != nil {
+		t.Fatalf("composeDisplayCaptures returned error: %v", err)
+	}
+	if meta.X != -2 || meta.Y != 0 {
+		t.Fatalf("meta origin = (%d,%d), want (-2,0)", meta.X, meta.Y)
+	}
+	if meta.Width != 6 || meta.Height != 5 {
+		t.Fatalf("meta size = %dx%d, want 6x5", meta.Width, meta.Height)
+	}
+
+	img, err := png.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("decode composed png: %v", err)
+	}
+
+	if got := color.RGBAModel.Convert(img.At(0, 0)).(color.RGBA); got.G != 255 {
+		t.Fatalf("top-left pixel = %+v, want green display at top", got)
+	}
+	if got := color.RGBAModel.Convert(img.At(2, 4)).(color.RGBA); got.R != 255 {
+		t.Fatalf("bottom region pixel = %+v, want red display at bottom", got)
+	}
+}
+
+func fill(img *image.RGBA, value color.RGBA) {
+	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
+		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+			img.SetRGBA(x, y, value)
+		}
 	}
 }
