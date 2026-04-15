@@ -43,12 +43,30 @@ func (linuxCapturer) CaptureInteractiveRegion(ctx context.Context) (PNG, Meta, e
 // captureViaPortal uses org.freedesktop.portal.Screenshot over D-Bus.
 // When the portal is unavailable it falls back to gnome-screenshot or grim.
 func captureViaPortal(ctx context.Context, interactive bool) (PNG, Meta, error) {
+	if shouldSkipPortal(os.Getenv("XDG_SESSION_TYPE"), hasGnomeScreenshot()) {
+		log.Printf("snapvector capture: X11 session with gnome-screenshot available — skipping portal (GNOME 46 portal requires parent_window we don't plumb)")
+		return fallbackScreenshot(ctx, interactive)
+	}
 	raw, meta, err := portalScreenshot(ctx, interactive)
 	if err == nil {
 		return raw, meta, nil
 	}
 	log.Printf("snapvector capture: portal screenshot failed: %v — trying fallback", err)
 	return fallbackScreenshot(ctx, interactive)
+}
+
+// shouldSkipPortal returns true when the XDG Desktop Portal Screenshot call
+// is going to be denied (or at best waste a round-trip) and a native tool is
+// available to do the job directly. Today that means: X11 sessions whose
+// portal (GNOME 46+) refuses requests without a parent_window handle that
+// we don't currently plumb through from the Wails WebKit window.
+func shouldSkipPortal(sessionType string, hasNativeTool bool) bool {
+	return sessionType == "x11" && hasNativeTool
+}
+
+func hasGnomeScreenshot() bool {
+	_, err := exec.LookPath("gnome-screenshot")
+	return err == nil
 }
 
 // portalScreenshot calls org.freedesktop.portal.Screenshot.Screenshot via D-Bus.
