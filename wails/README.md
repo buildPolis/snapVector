@@ -256,6 +256,26 @@ VERSION=0.1.0 MAINTAINER="Your Name <you@example.com>" ./scripts/package-deb.sh
 DEPENDS="libgtk-3-0t64, libwebkit2gtk-4.1-0, librsvg2-bin, xclip" ./scripts/package-deb.sh
 ```
 
+#### Upgrade flow (from a previous `.deb` or raw-binary install)
+
+```bash
+source ~/.nvm/nvm.sh && nvm use 24
+./scripts/package-deb.sh
+sudo dpkg -i build/packages/snapvector_0.1.0-phase1_amd64.deb
+rm -f ~/.local/share/applications/snapvector.desktop ~/.local/bin/snapvector
+update-desktop-database ~/.local/share/applications
+```
+
+The `rm` step clears the user-level `.desktop` and stale `~/.local/bin`
+binary that would otherwise **shadow** the system-level entry installed by
+the `.deb` (they share the same app-id, so GNOME Shell picks the user-level
+one and hides the new version). On first launch the binary regenerates a
+spec-compliant `~/.local/share/applications/snapvector.desktop` pointing at
+the new `/usr/bin/snapvector`. WebView asset cache is invalidated
+automatically via a size+mtime fingerprint — no need to `rm -rf
+~/.cache/snapvector`. See [`linux_install.md`](./linux_install.md) §8 for
+background.
+
 ## Hotkeys
 
 Defaults cover tools, editing, capture, zoom, and export actions.

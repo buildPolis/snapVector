@@ -145,3 +145,23 @@ gtk-launch snapvector
 ```
 
 或從應用程式選單搜尋 **SnapVector**。
+
+## 8. 從舊版升級
+
+升級 `.deb` 時，若曾經用過第 3 節的 raw-binary 路線，`~/.local/` 底下會留下 user-level 的 `.desktop` 與舊 binary，它們會以相同 app-id **遮蔽** `/usr/share/applications/` 的系統級捷徑，導致「顯示應用程式」看不到新版、或 Dock 仍指向舊執行檔。
+
+標準升級流程：
+
+```bash
+source ~/.nvm/nvm.sh && nvm use 24
+./scripts/package-deb.sh
+sudo dpkg -i build/packages/snapvector_0.1.0-phase1_amd64.deb
+rm -f ~/.local/share/applications/snapvector.desktop ~/.local/bin/snapvector
+update-desktop-database ~/.local/share/applications
+```
+
+說明：
+
+- `rm` 兩個 user-level 檔案，讓系統級 `.deb` 版本不再被遮蔽。首次啟動新版時，程式會依正確的 XDG 規格重新產生 `~/.local/share/applications/snapvector.desktop`。
+- `update-desktop-database` 強制 GNOME Shell 重讀 launcher 快取。
+- WebView 資產快取（`~/.cache/snapvector/WebKitCache`、`CacheStorage`）會由 binary 啟動時自動依 size+mtime 指紋判斷，發現 binary 變更就清掉，不必手動 `rm -rf ~/.cache/snapvector`。
