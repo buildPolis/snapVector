@@ -35,7 +35,7 @@ const state = {
   },
   numberedCircle: {
     nextNumber: 1,
-    radius: 20,
+    radius: 28,
     strokeColor: "#E53935",
     outlineColor: "#FFFFFF",
     textColor: "#FFFFFF",
@@ -875,7 +875,7 @@ function renderVectorAnnotations() {
     group.dataset.annotationId = ann.id;
     group.classList.add("annotation-hit");
     if (ann.type === "numbered-circle") {
-      const r = ann.radius ?? 20;
+      const r = ann.radius ?? 28;
       const sw = ann.strokeWidth ?? 6;
       const circle = document.createElementNS(SVG_NS, "circle");
       circle.setAttribute("cx", ann.x);
@@ -891,7 +891,7 @@ function renderVectorAnnotations() {
       text.setAttribute("y", ann.y);
       text.setAttribute("text-anchor", "middle");
       text.setAttribute("dominant-baseline", "central");
-      text.setAttribute("font-size", r * 0.9);
+      text.setAttribute("font-size", r * 1.25);
       text.setAttribute("font-weight", "800");
       text.setAttribute("fill", ann.textColor || "#FFFFFF");
       text.textContent = String(ann.number ?? 0);
@@ -1218,7 +1218,7 @@ function annotationBounds(ann) {
     return { x, y, width: Math.abs(ann.x2 - ann.x1), height: Math.abs(ann.y2 - ann.y1) };
   }
   if (ann.type === "numbered-circle") {
-    const r = ann.radius ?? 20;
+    const r = ann.radius ?? 28;
     return { x: ann.x - r, y: ann.y - r, width: r * 2, height: r * 2 };
   }
   return { x: ann.x, y: ann.y, width: ann.width || 180, height: ann.height || 64 };
@@ -1320,7 +1320,7 @@ function toPayload(ann) {
       type: ann.type,
       x: round(ann.x),
       y: round(ann.y),
-      radius: round(ann.radius ?? 20),
+      radius: round(ann.radius ?? 28),
       number: Math.max(0, Math.floor(ann.number ?? 0)),
       strokeColor: ann.strokeColor || "#E53935",
       outlineColor: ann.outlineColor || "#FFFFFF",

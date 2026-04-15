@@ -429,7 +429,7 @@ func renderNumberedCircle(idx int, ann annotation.Annotation) renderedAnnotation
 	padding := strokeW / 2
 	viewSize := radius*2 + strokeW
 	center := radius + padding
-	fontSize := radius * 0.9
+	fontSize := radius * 1.25
 	symbolID := symbolID(idx, ann.ID)
 	number := strconv.Itoa(ann.Number)
 

@@ -23,7 +23,7 @@ const (
 	DefaultTextVariant        = "solid"
 	DefaultBlurRadius         = 12.0
 	DefaultCornerRadius       = 18.0
-	DefaultNumberedRadius     = 20.0
+	DefaultNumberedRadius     = 28.0
 	DefaultNumberedStrokeW    = 6.0
 	DefaultNumberedTextColor  = "#FFFFFF"
 	MinNumberedRadius         = 6.0
