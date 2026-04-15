@@ -174,10 +174,10 @@ func captureAllDisplaysViaRect(ctx context.Context, rect darwinVirtualRect) (PNG
 }
 
 func captureAllDisplays(ctx context.Context, displays []darwinDisplay) (PNG, Meta, error) {
-	if !cgPreflightScreenCapture() {
+	if !ensureScreenCaptureAccess() {
 		return nil, Meta{}, &PermissionDeniedError{
 			Platform: "darwin",
-			Stderr:   "CGPreflightScreenCaptureAccess returned false",
+			Stderr:   "Screen Recording permission not granted; a system dialog was requested",
 		}
 	}
 	_ = ctx // CG calls are synchronous and non-cancellable; ctx.Deadline is advisory.
@@ -216,10 +216,10 @@ func captureAllDisplays(ctx context.Context, displays []darwinDisplay) (PNG, Met
 
 func captureDisplay(ctx context.Context, display darwinDisplay) (PNG, Meta, error) {
 	_ = ctx
-	if !cgPreflightScreenCapture() {
+	if !ensureScreenCaptureAccess() {
 		return nil, Meta{}, &PermissionDeniedError{
 			Platform: "darwin",
-			Stderr:   "CGPreflightScreenCaptureAccess returned false",
+			Stderr:   "Screen Recording permission not granted; a system dialog was requested",
 		}
 	}
 	if display.cgDisplayID == 0 {
@@ -336,6 +336,23 @@ func computeVirtualRect(displays []darwinDisplay) darwinVirtualRect {
 		}
 	}
 	return darwinVirtualRect{X: minX, Y: minY, Width: maxX - minX, Height: maxY - minY}
+}
+
+// ensureScreenCaptureAccess checks preflight and, if permission is not
+// granted, triggers a system dialog via CGRequestScreenCaptureAccess. The
+// Request call is what registers the app in the Privacy panel — without
+// calling it at least once, preflight stays false forever and TCC has no
+// record of the app. Safe to call on every capture: it returns quickly and
+// only shows a dialog the first time.
+func ensureScreenCaptureAccess() bool {
+	if cgPreflightScreenCapture() {
+		return true
+	}
+	if cgRequestScreenCapture() {
+		return true
+	}
+	log.Printf("snapvector capture: Screen Recording permission not granted; system dialog requested")
+	return false
 }
 
 func displayUnderCursor(displays []darwinDisplay) (darwinDisplay, bool) {

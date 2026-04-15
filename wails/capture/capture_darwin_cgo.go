@@ -71,6 +71,14 @@ static int snapvector_preflight_screen_capture(void) {
     return CGPreflightScreenCaptureAccess() ? 1 : 0;
 }
 
+// Trigger the Screen Recording permission dialog and register this app in
+// the Privacy panel. Returns 1 if permission is already granted at the time
+// of call, 0 otherwise (the dialog appears asynchronously; the NEXT capture
+// attempt will succeed once the user grants).
+static int snapvector_request_screen_capture(void) {
+    return CGRequestScreenCaptureAccess() ? 1 : 0;
+}
+
 // Cursor location in global display coords (points, top-left).
 static void snapvector_cursor_location(double* x, double* y) {
     CGEventRef evt = CGEventCreate(NULL);
@@ -142,6 +150,16 @@ const maxDisplaysProbed = 32
 // Recording permission, without raising a system dialog.
 func cgPreflightScreenCapture() bool {
 	return C.snapvector_preflight_screen_capture() != 0
+}
+
+// cgRequestScreenCapture triggers the macOS Screen Recording permission
+// dialog and registers this process in the Privacy panel. Returns true if
+// permission was already granted; false means the dialog is showing or the
+// user has previously denied. Must be called at least once per app
+// installation so TCC knows the app exists — without it, preflight will
+// always report false and no capture will succeed.
+func cgRequestScreenCapture() bool {
+	return C.snapvector_request_screen_capture() != 0
 }
 
 // cgListDisplays enumerates active displays via CoreGraphics and returns
