@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -113,11 +112,33 @@ func linuxDesktopEntry(execPath string) string {
 		"Categories=Graphics;Utility;",
 		"StartupNotify=true",
 		"StartupWMClass=" + linuxStartupWMClass,
-		"Exec=" + strconv.Quote(execPath) + " %U",
-		"TryExec=" + strconv.Quote(execPath),
+		"Exec=" + xdgExecQuote(execPath) + " %U",
+		"TryExec=" + execPath,
 		"Icon=" + linuxIconName,
 		"",
 	}, "\n")
+}
+
+// xdgExecQuote escapes a path for use in a .desktop Exec= field per the
+// XDG Desktop Entry Specification. Paths with none of the spec's
+// reserved characters are returned verbatim; otherwise the full path is
+// wrapped in double quotes and the four inner metacharacters (" ` $ \)
+// are backslash-escaped. Returning the path unchanged when no escaping
+// is needed matters because shells like GNOME and Unity reject entries
+// whose Exec= is wrapped in unnecessary quotes (the quotes are parsed
+// as part of the argv, not as shell syntax).
+func xdgExecQuote(p string) string {
+	const xdgReserved = " \t\n\"`$\\><~|&;*?#()"
+	if !strings.ContainsAny(p, xdgReserved) {
+		return p
+	}
+	escaper := strings.NewReplacer(
+		`\`, `\\`,
+		`"`, `\"`,
+		"`", "\\`",
+		`$`, `\$`,
+	)
+	return `"` + escaper.Replace(p) + `"`
 }
 
 func refreshLinuxDesktopCaches(applicationsDir, iconThemeDir string) {

@@ -9,13 +9,56 @@ import (
 	"testing"
 )
 
-func TestLinuxDesktopEntryIncludesExecutableAndIcon(t *testing.T) {
+func TestLinuxDesktopEntryPlainPathHasNoQuotes(t *testing.T) {
+	entry := linuxDesktopEntry("/usr/bin/snapvector")
+
+	assertDesktopContains(t, entry, "Exec=/usr/bin/snapvector %U")
+	assertDesktopContains(t, entry, "TryExec=/usr/bin/snapvector")
+	assertDesktopContains(t, entry, "Icon=snapvector")
+	assertDesktopContains(t, entry, "StartupWMClass=Snapvector")
+	if strings.Contains(entry, `Exec="/usr/bin/snapvector"`) {
+		t.Fatalf("plain path must not be double-quoted in Exec:\n%s", entry)
+	}
+	if strings.Contains(entry, `TryExec="`) {
+		t.Fatalf("TryExec must never be double-quoted (fd.o spec is literal path):\n%s", entry)
+	}
+}
+
+func TestLinuxDesktopEntryQuotesPathsWithSpaces(t *testing.T) {
 	entry := linuxDesktopEntry("/tmp/Snap Vector/snapvector")
 
 	assertDesktopContains(t, entry, `Exec="/tmp/Snap Vector/snapvector" %U`)
-	assertDesktopContains(t, entry, `TryExec="/tmp/Snap Vector/snapvector"`)
-	assertDesktopContains(t, entry, `Icon=snapvector`)
-	assertDesktopContains(t, entry, `StartupWMClass=Snapvector`)
+	// TryExec is a literal path per XDG spec — implementations call
+	// access(2) on the raw string, so spaces are fine without quoting.
+	assertDesktopContains(t, entry, "TryExec=/tmp/Snap Vector/snapvector")
+}
+
+func TestLinuxDesktopEntryEscapesXdgMetacharacters(t *testing.T) {
+	entry := linuxDesktopEntry(`/opt/w$d/"q"/app`)
+
+	assertDesktopContains(t, entry, `Exec="/opt/w\$d/\"q\"/app" %U`)
+	assertDesktopContains(t, entry, `TryExec=/opt/w$d/"q"/app`)
+}
+
+func TestXdgExecQuote(t *testing.T) {
+	cases := []struct {
+		name, in, want string
+	}{
+		{"plain", "/usr/bin/snapvector", "/usr/bin/snapvector"},
+		{"home dotlocal", "/home/jane/.local/bin/snapvector", "/home/jane/.local/bin/snapvector"},
+		{"with space", "/tmp/Snap Vector/snapvector", `"/tmp/Snap Vector/snapvector"`},
+		{"with dollar", "/opt/w$d/app", `"/opt/w\$d/app"`},
+		{"with backtick", "/opt/w`d/app", "\"/opt/w\\`d/app\""},
+		{"with quote", `/opt/w"d/app`, `"/opt/w\"d/app"`},
+		{"with backslash", `/opt/w\d/app`, `"/opt/w\\d/app"`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := xdgExecQuote(c.in); got != c.want {
+				t.Fatalf("xdgExecQuote(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
 }
 
 func TestSyncLinuxDesktopIntegrationWritesDesktopAssets(t *testing.T) {
@@ -61,7 +104,8 @@ func TestSyncLinuxDesktopIntegrationWritesDesktopAssets(t *testing.T) {
 	assertDesktopContains(t, desktopEntry, "Name=SnapVector")
 	assertDesktopContains(t, desktopEntry, "StartupWMClass=Snapvector")
 	assertDesktopContains(t, desktopEntry, "Icon=snapvector")
-	assertDesktopContains(t, desktopEntry, `Exec="`+execPath+`" %U`)
+	assertDesktopContains(t, desktopEntry, "Exec="+execPath+" %U")
+	assertDesktopContains(t, desktopEntry, "TryExec="+execPath)
 }
 
 func assertDesktopContains(t *testing.T, haystack, needle string) {
