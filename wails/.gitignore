@@ -10,6 +10,10 @@
 !/build/bin/snapvector.app/**
 # Ignore macOS filesystem cruft that sneaks into the bundle
 /build/bin/snapvector.app/**/.DS_Store
+# Debian packages produced by scripts/package-deb.sh (shipped via Git LFS)
+!/build/packages/
+/build/packages/*
+!/build/packages/*.deb
 /vendor/
 *.test
 *.out
