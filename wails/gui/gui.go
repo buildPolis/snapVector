@@ -13,6 +13,7 @@ func Run() {
 	app := NewApp()
 	configureLinuxProgramIdentity()
 	ensureLinuxDesktopIntegration()
+	bustWebViewCacheIfBinaryChanged()
 
 	if err := wails.Run(&options.App{
 		Title:         "SnapVector",
