@@ -32,6 +32,14 @@ const state = {
     savedFingerprint: "",
     menuOpen: false,
   },
+  numberedCircle: {
+    nextNumber: 1,
+    radius: 20,
+    strokeColor: "#E53935",
+    outlineColor: "#FFFFFF",
+    textColor: "#FFFFFF",
+    strokeWidth: 6,
+  },
 };
 
 const IS_MAC = /mac|iphone|ipad|ipod/i.test(navigator.platform);
@@ -85,6 +93,14 @@ const els = {
   blurRadius: document.getElementById("blurRadius"),
   cornerRadius: document.getElementById("cornerRadius"),
   feather: document.getElementById("feather"),
+  sectionNumberedCircle: document.getElementById("sectionNumberedCircle"),
+  numberedStarting: document.getElementById("numberedStarting"),
+  numberedThis: document.getElementById("numberedThis"),
+  numberedRadius: document.getElementById("numberedRadius"),
+  numberedStrokeWidth: document.getElementById("numberedStrokeWidth"),
+  numberedFillColor: document.getElementById("numberedFillColor"),
+  numberedOutlineColor: document.getElementById("numberedOutlineColor"),
+  numberedTextColor: document.getElementById("numberedTextColor"),
   statusX: document.getElementById("statusX"),
   statusY: document.getElementById("statusY"),
   statusZoom: document.getElementById("statusZoom"),
@@ -235,6 +251,45 @@ function bindInspector() {
   els.blurRadius.addEventListener("input", () => updateSelected({ blurRadius: numberValue(els.blurRadius.value, 12) }));
   els.cornerRadius.addEventListener("input", () => updateSelected({ cornerRadius: numberValue(els.cornerRadius.value, 18) }));
   els.feather.addEventListener("input", () => updateSelected({ feather: numberValue(els.feather.value, 12) }));
+
+  els.numberedStarting.addEventListener("input", () => {
+    state.numberedCircle.nextNumber = Math.max(0, Math.floor(numberValue(els.numberedStarting.value, 1)));
+  });
+  els.numberedThis.addEventListener("input", () => {
+    const ann = selectedAnnotation();
+    if (!ann || ann.type !== "numbered-circle") return;
+    updateSelected({ number: Math.max(0, Math.floor(numberValue(els.numberedThis.value, 1))) });
+  });
+  els.numberedRadius.addEventListener("input", () => {
+    const value = Math.max(6, Math.min(200, numberValue(els.numberedRadius.value, 20)));
+    state.numberedCircle.radius = value;
+    const ann = selectedAnnotation();
+    if (ann && ann.type === "numbered-circle") updateSelected({ radius: value });
+  });
+  els.numberedStrokeWidth.addEventListener("input", () => {
+    const value = Math.max(0, Math.min(20, numberValue(els.numberedStrokeWidth.value, 6)));
+    state.numberedCircle.strokeWidth = value;
+    const ann = selectedAnnotation();
+    if (ann && ann.type === "numbered-circle") updateSelected({ strokeWidth: value });
+  });
+  els.numberedFillColor.addEventListener("input", () => {
+    const value = els.numberedFillColor.value.toUpperCase();
+    state.numberedCircle.strokeColor = value;
+    const ann = selectedAnnotation();
+    if (ann && ann.type === "numbered-circle") updateSelected({ strokeColor: value });
+  });
+  els.numberedOutlineColor.addEventListener("input", () => {
+    const value = els.numberedOutlineColor.value.toUpperCase();
+    state.numberedCircle.outlineColor = value;
+    const ann = selectedAnnotation();
+    if (ann && ann.type === "numbered-circle") updateSelected({ outlineColor: value });
+  });
+  els.numberedTextColor.addEventListener("input", () => {
+    const value = els.numberedTextColor.value.toUpperCase();
+    state.numberedCircle.textColor = value;
+    const ann = selectedAnnotation();
+    if (ann && ann.type === "numbered-circle") updateSelected({ textColor: value });
+  });
 }
 
 const CAPTURE_MODES = {
@@ -284,6 +339,7 @@ async function captureScreen(mode = "fullscreen") {
   state.selectedId = null;
   state.history = [];
   state.future = [];
+  state.numberedCircle.nextNumber = 1;
   state.zoom = fitToWidthZoom(state.capture.width);
   state.zoomAutoFit = true;
   state.pan = { x: 0, y: 0 };
@@ -351,6 +407,29 @@ function onPointerDown(event) {
     render();
     els.textContent.focus();
     els.textContent.select();
+    return;
+  }
+
+  if (state.tool === "numbered-circle") {
+    pushHistory();
+    const opts = state.numberedCircle;
+    const id = nextId("ann-numbered");
+    state.annotations.push({
+      id,
+      type: "numbered-circle",
+      x: point.x,
+      y: point.y,
+      radius: opts.radius,
+      number: opts.nextNumber,
+      strokeColor: opts.strokeColor,
+      outlineColor: opts.outlineColor,
+      textColor: opts.textColor,
+      strokeWidth: opts.strokeWidth,
+    });
+    state.numberedCircle.nextNumber += 1;
+    state.selectedId = id;
+    syncDirtyState();
+    render();
     return;
   }
 
@@ -525,6 +604,13 @@ function resizeAnnotation(annotationId, handle, snapshot, point) {
   }
 
   if (next.width < 8 || next.height < 8) return;
+  if (ann.type === "numbered-circle") {
+    const r = Math.max(6, Math.min(200, Math.min(next.width, next.height) / 2));
+    ann.x = next.x + next.width / 2;
+    ann.y = next.y + next.height / 2;
+    ann.radius = r;
+    return;
+  }
   ann.x = next.x;
   ann.y = next.y;
   ann.width = next.width;
@@ -574,6 +660,7 @@ function snapshot() {
     tool: state.tool,
     zoom: state.zoom,
     pan: { ...state.pan },
+    numberedNextNumber: state.numberedCircle.nextNumber,
   };
 }
 
@@ -584,6 +671,9 @@ function restoreSnapshot(data) {
   state.tool = data.tool;
   state.zoom = data.zoom;
   state.pan = { ...data.pan };
+  if (typeof data.numberedNextNumber === "number") {
+    state.numberedCircle.nextNumber = data.numberedNextNumber;
+  }
 }
 
 function toggleFileMenu() {
@@ -765,6 +855,31 @@ function renderVectorAnnotations() {
     const group = document.createElementNS(SVG_NS, "g");
     group.dataset.annotationId = ann.id;
     group.classList.add("annotation-hit");
+    if (ann.type === "numbered-circle") {
+      const r = ann.radius ?? 20;
+      const sw = ann.strokeWidth ?? 6;
+      const circle = document.createElementNS(SVG_NS, "circle");
+      circle.setAttribute("cx", ann.x);
+      circle.setAttribute("cy", ann.y);
+      circle.setAttribute("r", r);
+      circle.setAttribute("fill", ann.strokeColor || "#E53935");
+      circle.setAttribute("stroke", ann.outlineColor || "#FFFFFF");
+      circle.setAttribute("stroke-width", sw);
+      circle.setAttribute("paint-order", "stroke fill");
+      group.appendChild(circle);
+      const text = document.createElementNS(SVG_NS, "text");
+      text.setAttribute("x", ann.x);
+      text.setAttribute("y", ann.y);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "central");
+      text.setAttribute("font-size", r * 0.9);
+      text.setAttribute("font-weight", "800");
+      text.setAttribute("fill", ann.textColor || "#FFFFFF");
+      text.textContent = String(ann.number ?? 0);
+      group.appendChild(text);
+      svg.appendChild(group);
+      return;
+    }
     if (ann.type === "rectangle") {
       group.appendChild(svgHitRect(ann.x, ann.y, ann.width, ann.height));
       group.appendChild(svgRect(ann.x, ann.y, ann.width, ann.height, "#FFFFFF", ann.strokeWidth ?? 16));
@@ -915,6 +1030,12 @@ function renderInspector() {
     sectionGeometry?.classList.add("is-hidden");
     sectionText?.classList.add("is-hidden");
     sectionBlur?.classList.add("is-hidden");
+    els.sectionNumberedCircle?.classList.toggle("is-hidden", state.tool !== "numbered-circle");
+    if (state.tool === "numbered-circle") {
+      appBody?.classList.remove("inspector-collapsed");
+      emptyHint?.classList.add("is-hidden");
+      syncNumberedInspector(null);
+    }
     return;
   }
 
@@ -922,9 +1043,11 @@ function renderInspector() {
   appBody?.classList.remove("inspector-collapsed");
   emptyHint?.classList.add("is-hidden");
   sectionSelected?.classList.remove("is-hidden");
-  sectionGeometry?.classList.remove("is-hidden");
+  sectionGeometry?.classList.toggle("is-hidden", ann.type === "numbered-circle");
   sectionText?.classList.toggle("is-hidden", ann.type !== "text");
   sectionBlur?.classList.toggle("is-hidden", ann.type !== "blur");
+  els.sectionNumberedCircle?.classList.toggle("is-hidden", ann.type !== "numbered-circle" && state.tool !== "numbered-circle");
+  syncNumberedInspector(ann.type === "numbered-circle" ? ann : null);
   [ann.type, ann.id].forEach((value, index) => {
     const chip = document.createElement("span");
     chip.className = "chip";
@@ -944,6 +1067,26 @@ function renderInspector() {
   syncInputValue(els.blurRadius, ann.type === "blur" ? ann.blurRadius || 12 : 12);
   syncInputValue(els.cornerRadius, ann.type === "blur" ? ann.cornerRadius || 18 : 18);
   syncInputValue(els.feather, ann.type === "blur" ? ann.feather || 12 : 12);
+}
+
+function syncNumberedInspector(ann) {
+  const opts = state.numberedCircle;
+  syncInputValue(els.numberedStarting, opts.nextNumber);
+  syncInputValue(els.numberedThis, ann ? (ann.number ?? 0) : "");
+  syncInputValue(els.numberedRadius, ann ? (ann.radius ?? opts.radius) : opts.radius);
+  syncInputValue(els.numberedStrokeWidth, ann ? (ann.strokeWidth ?? opts.strokeWidth) : opts.strokeWidth);
+  if (els.numberedFillColor && document.activeElement !== els.numberedFillColor) {
+    els.numberedFillColor.value = (ann?.strokeColor || opts.strokeColor).toLowerCase();
+  }
+  if (els.numberedOutlineColor && document.activeElement !== els.numberedOutlineColor) {
+    els.numberedOutlineColor.value = (ann?.outlineColor || opts.outlineColor).toLowerCase();
+  }
+  if (els.numberedTextColor && document.activeElement !== els.numberedTextColor) {
+    els.numberedTextColor.value = (ann?.textColor || opts.textColor).toLowerCase();
+  }
+  if (els.numberedThis) {
+    els.numberedThis.disabled = !ann;
+  }
 }
 
 // Skip writing to an input the user is currently editing — otherwise every
@@ -1058,6 +1201,10 @@ function annotationBounds(ann) {
     const y = Math.min(ann.y1, ann.y2);
     return { x, y, width: Math.abs(ann.x2 - ann.x1), height: Math.abs(ann.y2 - ann.y1) };
   }
+  if (ann.type === "numbered-circle") {
+    const r = ann.radius ?? 20;
+    return { x: ann.x - r, y: ann.y - r, width: r * 2, height: r * 2 };
+  }
   return { x: ann.x, y: ann.y, width: ann.width || 180, height: ann.height || 64 };
 }
 
@@ -1128,6 +1275,20 @@ function toPayload(ann) {
       blurRadius: round(ann.blurRadius || 12),
       cornerRadius: round(ann.cornerRadius || 18),
       feather: round(ann.feather || 12),
+    };
+  }
+  if (ann.type === "numbered-circle") {
+    return {
+      id: ann.id,
+      type: ann.type,
+      x: round(ann.x),
+      y: round(ann.y),
+      radius: round(ann.radius ?? 20),
+      number: Math.max(0, Math.floor(ann.number ?? 0)),
+      strokeColor: ann.strokeColor || "#E53935",
+      outlineColor: ann.outlineColor || "#FFFFFF",
+      textColor: ann.textColor || "#FFFFFF",
+      strokeWidth: round(ann.strokeWidth ?? 6),
     };
   }
   return { id: ann.id, type: ann.type, x: round(ann.x), y: round(ann.y), width: round(ann.width), height: round(ann.height) };
@@ -1382,6 +1543,7 @@ function hotkeyActions() {
     "tool.ellipse":         () => setTool("ellipse"),
     "tool.text":            () => setTool("text"),
     "tool.blur":            () => setTool("blur"),
+    "tool.numberedCircle":  () => setTool("numbered-circle"),
     "tool.crop":            () => setTool("crop"),
     "edit.undo":            () => undo(),
     "edit.redo":            () => redo(),
@@ -1432,6 +1594,7 @@ function defaultHotkeyBindings() {
     { action: "tool.ellipse", combo: "o", scope: "app" },
     { action: "tool.text", combo: "t", scope: "app" },
     { action: "tool.blur", combo: "b", scope: "app" },
+    { action: "tool.numberedCircle", combo: "n", scope: "app" },
     { action: "tool.crop", combo: "c", scope: "app" },
     { action: "edit.undo", combo: "mod+z", scope: "app" },
     { action: "edit.redo", combo: "mod+shift+z", scope: "app" },
@@ -1479,6 +1642,7 @@ const ACTION_LABELS = {
   "tool.ellipse": "Ellipse tool",
   "tool.text": "Text tool",
   "tool.blur": "Blur tool",
+  "tool.numberedCircle": "Numbered circle tool",
   "tool.crop": "Crop tool",
   "edit.undo": "Undo",
   "edit.redo": "Redo",
@@ -1496,7 +1660,7 @@ const ACTION_LABELS = {
 };
 
 const ACTION_GROUPS = [
-  { title: "Tools", actions: ["tool.select", "tool.arrow", "tool.rectangle", "tool.ellipse", "tool.text", "tool.blur", "tool.crop"] },
+  { title: "Tools", actions: ["tool.select", "tool.arrow", "tool.rectangle", "tool.ellipse", "tool.text", "tool.blur", "tool.numberedCircle", "tool.crop"] },
   { title: "Editing", actions: ["edit.undo", "edit.redo"] },
   { title: "File", actions: ["file.open", "file.save", "file.saveAs"] },
   { title: "View", actions: ["view.zoomIn", "view.zoomOut", "view.zoomReset"] },

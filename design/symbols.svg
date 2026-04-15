@@ -146,6 +146,16 @@
       <path class="sv-icon" d="M8 14c1.1-1 2.2-1 3.3 0s2.2 1 3.4 0 2.2-1 3.3 0" />
     </symbol>
 
+    <symbol id="icon-numbered-circle" viewBox="0 0 24 24">
+      <circle class="sv-icon" cx="12" cy="12" r="8.5" />
+      <text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="10" font-weight="800" fill="currentColor" stroke="none">1</text>
+    </symbol>
+
+    <symbol id="annotation-numbered-circle" viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r="34" fill="#e53935" stroke="#ffffff" stroke-width="6" paint-order="stroke fill" />
+      <text x="40" y="40" text-anchor="middle" dominant-baseline="central" font-size="30" font-weight="800" fill="#ffffff">1</text>
+    </symbol>
+
     <symbol id="icon-crop" viewBox="0 0 24 24">
       <path class="sv-icon" d="M7 3v14h14" />
       <path class="sv-icon" d="M3 7h14v14" />

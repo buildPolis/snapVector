@@ -362,6 +362,48 @@ func TestRunInjectSVGSamplePayloadRendersAllTypes(t *testing.T) {
 	}
 }
 
+func TestRunInjectSVGNumberedCircle(t *testing.T) {
+	originalFactory := newCapturer
+	newCapturer = func() capture.Capturer {
+		return fakeCapturer{
+			png:  mustMakePNG(t),
+			meta: capture.Meta{Width: 800, Height: 600},
+		}
+	}
+	defer func() {
+		newCapturer = originalFactory
+	}()
+
+	payload := `[
+		{"id":"step-1","type":"numbered-circle","x":100,"y":100,"number":1},
+		{"id":"step-2","type":"numbered-circle","x":200,"y":100,"number":2,"strokeColor":"#2E86AB","textColor":"#FFFFFF"}
+	]`
+
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"--inject-svg", payload}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, stderr=%q", code, stderr.String())
+	}
+
+	var resp struct {
+		Data struct {
+			AnnotationCount int    `json:"annotationCount"`
+			SVG             string `json:"svg"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &resp); err != nil {
+		t.Fatalf("stdout not JSON: %v", err)
+	}
+	if resp.Data.AnnotationCount != 2 {
+		t.Fatalf("annotationCount = %d, want 2", resp.Data.AnnotationCount)
+	}
+	if !strings.Contains(resp.Data.SVG, `>1</text>`) || !strings.Contains(resp.Data.SVG, `>2</text>`) {
+		t.Fatalf("svg missing number labels: %q", resp.Data.SVG)
+	}
+	if !strings.Contains(resp.Data.SVG, `fill="#2E86AB"`) {
+		t.Fatalf("svg missing custom fill color: %q", resp.Data.SVG)
+	}
+}
+
 func TestRunUnsupportedPlatformIsNotRetryable(t *testing.T) {
 	originalFactory := newCapturer
 	newCapturer = func() capture.Capturer {

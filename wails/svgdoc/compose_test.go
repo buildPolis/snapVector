@@ -162,6 +162,44 @@ func assertContains(t *testing.T, haystack string, needle string) {
 	}
 }
 
+func TestComposeRendersNumberedCircle(t *testing.T) {
+	svg, err := Compose(mustPNG(t), 100, 100, []annotation.Annotation{
+		{
+			ID:           "step-1",
+			Type:         annotation.TypeNumberedCircle,
+			StrokeColor:  "#2E86AB",
+			OutlineColor: "#FFFFFF",
+			TextColor:    "#FFFFFF",
+			StrokeWidth:  6,
+			X:            50,
+			Y:            60,
+			Radius:       20,
+			Number:       7,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Compose returned error: %v", err)
+	}
+	if !strings.Contains(svg, `<circle`) {
+		t.Fatalf("missing circle: %q", svg)
+	}
+	if !strings.Contains(svg, `fill="#2E86AB"`) {
+		t.Fatalf("missing fill color: %q", svg)
+	}
+	if !strings.Contains(svg, `stroke="#FFFFFF"`) {
+		t.Fatalf("missing outline color: %q", svg)
+	}
+	if !strings.Contains(svg, `paint-order="stroke fill"`) {
+		t.Fatalf("missing paint-order: %q", svg)
+	}
+	if !strings.Contains(svg, `>7</text>`) {
+		t.Fatalf("missing number text: %q", svg)
+	}
+	if !strings.Contains(svg, `text-anchor="middle"`) || !strings.Contains(svg, `dominant-baseline="central"`) {
+		t.Fatalf("text not centered: %q", svg)
+	}
+}
+
 func mustPNG(t *testing.T) []byte {
 	t.Helper()
 

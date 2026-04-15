@@ -141,7 +141,7 @@
 
 | 欄位 | 型別 | 必填 | 說明 |
 |---|---|---|---|
-| `type` | string | 必填 | 僅允許 `"arrow"`、`"rectangle"`、`"ellipse"`、`"text"`、`"blur"`。 |
+| `type` | string | 必填 | 僅允許 `"arrow"`、`"rectangle"`、`"ellipse"`、`"text"`、`"blur"`、`"numbered-circle"`。 |
 | `id` | string | 選填 | 供呼叫端追蹤 annotation；若缺省由實作自行產生。 |
 | `strokeColor` | string | 選填 | 預設為 `#E53935`。 |
 | `outlineColor` | string | 選填 | 預設為 `#FFFFFF`。 |
@@ -156,6 +156,7 @@
 | `ellipse` | `x`, `y`, `width`, `height` | 以 bounding box 定義橢圓。 |
 | `text` | `x`, `y`, `text` | `x`,`y` 為文字方塊左上角。 |
 | `blur` | `x`, `y`, `width`, `height` | 以圓角矩形定義 blur 區域。 |
+| `numbered-circle` | `x`, `y`, `number` | `x`,`y` 為圓心；`number` 為顯示的整數序號（≥ 0）。 |
 
 `text` 額外欄位：
 
@@ -173,6 +174,16 @@
 | `blurRadius` | number | 選填 | blur 強度，預設依 baseline，建議預設為 `12`。 |
 | `cornerRadius` | number | 選填 | 圓角半徑，預設依 baseline，建議預設為 `18`。 |
 | `feather` | number | 選填 | 邊緣柔化量，若未提供則由實作採用與 `blurRadius` 相容的預設值。 |
+
+`numbered-circle` 額外欄位：
+
+| 欄位 | 型別 | 必填 | 說明 |
+|---|---|---|---|
+| `number` | integer | 必填 | 圓圈顯示的數字，須 ≥ 0。 |
+| `radius` | number | 選填 | 圓半徑，預設 `20`，範圍 6–200。 |
+| `textColor` | string | 選填 | 數字顏色，預設 `#FFFFFF`。 |
+
+`numbered-circle` 沿用通用欄位：`strokeColor`（主填色，預設 `#E53935`）、`outlineColor`（外白邊，預設 `#FFFFFF`）、`strokeWidth`（外白邊粗細，預設 `6`）。
 
 輸入範例：
 
@@ -221,6 +232,14 @@
     "variant": "solid",
     "fontSize": 24,
     "maxWidth": 220
+  },
+  {
+    "id": "ann-step-1",
+    "type": "numbered-circle",
+    "x": 420,
+    "y": 360,
+    "number": 1,
+    "radius": 20
   }
 ]
 ```

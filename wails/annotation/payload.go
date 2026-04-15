@@ -9,19 +9,25 @@ import (
 )
 
 const (
-	TypeArrow     = "arrow"
-	TypeRectangle = "rectangle"
-	TypeEllipse   = "ellipse"
-	TypeText      = "text"
-	TypeBlur      = "blur"
+	TypeArrow          = "arrow"
+	TypeRectangle      = "rectangle"
+	TypeEllipse        = "ellipse"
+	TypeText           = "text"
+	TypeBlur           = "blur"
+	TypeNumberedCircle = "numbered-circle"
 
-	DefaultStrokeColor  = "#E53935"
-	DefaultOutlineColor = "#FFFFFF"
-	DefaultStrokeWidth  = 10.0
-	DefaultFontSize     = 30.0
-	DefaultTextVariant  = "solid"
-	DefaultBlurRadius   = 12.0
-	DefaultCornerRadius = 18.0
+	DefaultStrokeColor        = "#E53935"
+	DefaultOutlineColor       = "#FFFFFF"
+	DefaultStrokeWidth        = 10.0
+	DefaultFontSize           = 30.0
+	DefaultTextVariant        = "solid"
+	DefaultBlurRadius         = 12.0
+	DefaultCornerRadius       = 18.0
+	DefaultNumberedRadius     = 20.0
+	DefaultNumberedStrokeW    = 6.0
+	DefaultNumberedTextColor  = "#FFFFFF"
+	MinNumberedRadius         = 6.0
+	MaxNumberedRadius         = 200.0
 )
 
 var hexColorPattern = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
@@ -51,6 +57,10 @@ type Annotation struct {
 	BlurRadius   float64
 	CornerRadius float64
 	Feather      float64
+
+	Number    int
+	Radius    float64
+	TextColor string
 }
 
 type rawAnnotation struct {
@@ -78,6 +88,10 @@ type rawAnnotation struct {
 	BlurRadius   *float64 `json:"blurRadius"`
 	CornerRadius *float64 `json:"cornerRadius"`
 	Feather      *float64 `json:"feather"`
+
+	Number    *int     `json:"number"`
+	Radius    *float64 `json:"radius"`
+	TextColor string   `json:"textColor"`
 }
 
 func ParsePayload(payload string) ([]Annotation, error) {
@@ -114,6 +128,11 @@ func normalize(idx int, raw rawAnnotation) (Annotation, error) {
 		BlurRadius:   defaultFloat(raw.BlurRadius, DefaultBlurRadius),
 		CornerRadius: defaultFloat(raw.CornerRadius, DefaultCornerRadius),
 		Feather:      optionalFloat(raw.Feather),
+		Radius:       defaultFloat(raw.Radius, DefaultNumberedRadius),
+		TextColor:    normalizeColor(raw.TextColor, DefaultNumberedTextColor),
+	}
+	if raw.Number != nil {
+		annotation.Number = *raw.Number
 	}
 
 	if annotation.ID == "" {
@@ -187,6 +206,24 @@ func normalize(idx int, raw rawAnnotation) (Annotation, error) {
 		}
 		if annotation.Variant != "solid" && annotation.Variant != "outline" {
 			return Annotation{}, fmt.Errorf("text variant must be solid or outline")
+		}
+	case TypeNumberedCircle:
+		if raw.X == nil || raw.Y == nil || raw.Number == nil {
+			return Annotation{}, fmt.Errorf("numbered-circle requires x, y, number")
+		}
+		annotation.X = *raw.X
+		annotation.Y = *raw.Y
+		if raw.StrokeWidth == nil {
+			annotation.StrokeWidth = DefaultNumberedStrokeW
+		}
+		if annotation.Number < 0 {
+			return Annotation{}, fmt.Errorf("numbered-circle number must be >= 0")
+		}
+		if annotation.Radius < MinNumberedRadius || annotation.Radius > MaxNumberedRadius {
+			return Annotation{}, fmt.Errorf("numbered-circle radius must be between %v and %v", MinNumberedRadius, MaxNumberedRadius)
+		}
+		if !validColor(annotation.TextColor) {
+			return Annotation{}, fmt.Errorf("invalid textColor %q", annotation.TextColor)
 		}
 	default:
 		return Annotation{}, fmt.Errorf("unsupported type %q", annotation.Type)

@@ -56,6 +56,65 @@ func TestParsePayloadRejectsInvalidGeometry(t *testing.T) {
 	}
 }
 
+func TestParsePayloadNumberedCircleFull(t *testing.T) {
+	annotations, err := ParsePayload(`[{"type":"numbered-circle","x":100,"y":200,"number":3,"radius":24,"strokeColor":"#2E86AB","outlineColor":"#FFFFFF","textColor":"#FEFEFE","strokeWidth":4}]`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(annotations) != 1 {
+		t.Fatalf("count = %d, want 1", len(annotations))
+	}
+	a := annotations[0]
+	if a.Type != TypeNumberedCircle || a.Number != 3 || a.Radius != 24 ||
+		a.StrokeColor != "#2E86AB" || a.TextColor != "#FEFEFE" || a.StrokeWidth != 4 {
+		t.Fatalf("unexpected annotation: %+v", a)
+	}
+}
+
+func TestParsePayloadNumberedCircleDefaults(t *testing.T) {
+	annotations, err := ParsePayload(`[{"type":"numbered-circle","x":50,"y":60,"number":0}]`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	a := annotations[0]
+	if a.Radius != DefaultNumberedRadius {
+		t.Fatalf("radius = %v, want %v", a.Radius, DefaultNumberedRadius)
+	}
+	if a.StrokeWidth != DefaultNumberedStrokeW {
+		t.Fatalf("strokeWidth = %v, want %v", a.StrokeWidth, DefaultNumberedStrokeW)
+	}
+	if a.TextColor != DefaultNumberedTextColor {
+		t.Fatalf("textColor = %q, want %q", a.TextColor, DefaultNumberedTextColor)
+	}
+	if a.StrokeColor != DefaultStrokeColor || a.OutlineColor != DefaultOutlineColor {
+		t.Fatalf("unexpected default colors: stroke=%q outline=%q", a.StrokeColor, a.OutlineColor)
+	}
+}
+
+func TestParsePayloadNumberedCircleRejectsNegativeNumber(t *testing.T) {
+	if _, err := ParsePayload(`[{"type":"numbered-circle","x":1,"y":2,"number":-1}]`); err == nil {
+		t.Fatal("expected negative number error")
+	}
+}
+
+func TestParsePayloadNumberedCircleRejectsMissing(t *testing.T) {
+	if _, err := ParsePayload(`[{"type":"numbered-circle","x":1,"y":2}]`); err == nil {
+		t.Fatal("expected missing number error")
+	}
+}
+
+func TestParsePayloadNumberedCircleRejectsBadRadius(t *testing.T) {
+	if _, err := ParsePayload(`[{"type":"numbered-circle","x":1,"y":2,"number":1,"radius":1000}]`); err == nil {
+		t.Fatal("expected radius out of range error")
+	}
+}
+
+func TestParsePayloadNumberedCircleRejectsBadTextColor(t *testing.T) {
+	if _, err := ParsePayload(`[{"type":"numbered-circle","x":1,"y":2,"number":1,"textColor":"white"}]`); err == nil {
+		t.Fatal("expected invalid textColor error")
+	}
+}
+
 func TestWrapTextSplitsLongText(t *testing.T) {
 	lines := WrapText("abcdefgh", 30, 10)
 	if len(lines) < 2 {

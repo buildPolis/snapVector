@@ -23,7 +23,7 @@ const hotkeyFileVersion = 1
 // Ordering drives the default Preferences modal grouping.
 var ActionCatalog = []string{
 	"tool.select", "tool.arrow", "tool.rectangle", "tool.ellipse",
-	"tool.text", "tool.blur", "tool.crop",
+	"tool.text", "tool.blur", "tool.numberedCircle", "tool.crop",
 	"edit.undo", "edit.redo",
 	"file.open", "file.save", "file.saveAs",
 	"view.zoomIn", "view.zoomOut", "view.zoomReset",
@@ -40,6 +40,7 @@ func DefaultHotkeys() []Hotkey {
 		"tool.ellipse":         "o",
 		"tool.text":            "t",
 		"tool.blur":            "b",
+		"tool.numberedCircle":  "n",
 		"tool.crop":            "c",
 		"edit.undo":            "mod+z",
 		"edit.redo":            "mod+shift+z",

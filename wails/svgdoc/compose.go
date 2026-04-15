@@ -103,6 +103,8 @@ func renderAnnotation(idx int, ann annotation.Annotation, baseDataURL string, ca
 		return renderText(idx, ann), nil
 	case annotation.TypeBlur:
 		return renderBlur(idx, ann, baseDataURL, canvasWidth, canvasHeight), nil
+	case annotation.TypeNumberedCircle:
+		return renderNumberedCircle(idx, ann), nil
 	default:
 		return renderedAnnotation{}, fmt.Errorf("unsupported annotation type %q", ann.Type)
 	}
@@ -416,6 +418,47 @@ func renderBlur(idx int, ann annotation.Annotation, baseDataURL string, canvasWi
 		formatFloat(ann.Y),
 		formatFloat(ann.Width),
 		formatFloat(ann.Height),
+	)
+
+	return renderedAnnotation{def: def, use: use}
+}
+
+func renderNumberedCircle(idx int, ann annotation.Annotation) renderedAnnotation {
+	radius := ann.Radius
+	strokeW := ann.StrokeWidth
+	padding := strokeW / 2
+	viewSize := radius*2 + strokeW
+	center := radius + padding
+	fontSize := radius * 0.9
+	symbolID := symbolID(idx, ann.ID)
+	number := strconv.Itoa(ann.Number)
+
+	def := fmt.Sprintf(
+		`<symbol id="%s" viewBox="0 0 %s %s">`+
+			`<circle cx="%s" cy="%s" r="%s" fill="%s" stroke="%s" stroke-width="%s" paint-order="stroke fill"/>`+
+			`<text class="sv-text" x="%s" y="%s" font-size="%s" fill="%s" text-anchor="middle" dominant-baseline="central">%s</text>`+
+			`</symbol>`,
+		symbolID,
+		formatFloat(viewSize),
+		formatFloat(viewSize),
+		formatFloat(center),
+		formatFloat(center),
+		formatFloat(radius),
+		quoteAttr(ann.StrokeColor),
+		quoteAttr(ann.OutlineColor),
+		formatFloat(strokeW),
+		formatFloat(center),
+		formatFloat(center),
+		formatFloat(fontSize),
+		quoteAttr(ann.TextColor),
+		escapeText(number),
+	)
+	use := fmt.Sprintf(`<use href="#%s" x="%s" y="%s" width="%s" height="%s"/>`,
+		symbolID,
+		formatFloat(ann.X-center),
+		formatFloat(ann.Y-center),
+		formatFloat(viewSize),
+		formatFloat(viewSize),
 	)
 
 	return renderedAnnotation{def: def, use: use}
