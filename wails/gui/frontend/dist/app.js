@@ -1616,9 +1616,25 @@ async function loadHotkeys() {
 function applyHotkeyBindings(bindings) {
   hotkeys.bindings = bindings.slice();
   hotkeys.comboToAction = new Map();
+  hotkeys.actionToCombo = new Map();
   for (const b of bindings) {
     if (b.combo) hotkeys.comboToAction.set(b.combo, b.action);
+    hotkeys.actionToCombo.set(b.action, b.combo || "");
   }
+  updateHotkeyAnnotatedTitles();
+}
+
+function updateHotkeyAnnotatedTitles() {
+  if (typeof document === "undefined") return;
+  const nodes = document.querySelectorAll("[data-hotkey-action]");
+  nodes.forEach((node) => {
+    const action = node.getAttribute("data-hotkey-action");
+    const base = node.getAttribute("data-title-base") || node.getAttribute("title") || "";
+    if (!node.getAttribute("data-title-base")) node.setAttribute("data-title-base", base);
+    const combo = (hotkeys.actionToCombo && hotkeys.actionToCombo.get(action)) || "";
+    const display = combo && typeof SV_Hotkey !== "undefined" ? SV_Hotkey.comboToDisplay(combo, IS_MAC) : "";
+    node.title = display ? `${base} (${display})` : base;
+  });
 }
 
 function defaultHotkeyBindings() {

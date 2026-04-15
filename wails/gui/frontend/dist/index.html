@@ -33,10 +33,6 @@
             </div>
             <span id="documentBadge" class="document-badge">Untitled · saved</span>
           </div>
-          <span class="kbd-hint">
-            <span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">4</span>
-            <span>Wails GUI shell</span>
-          </span>
           <span class="mode-pill">GUI shell</span>
         </div>
 
@@ -64,13 +60,13 @@
               <svg><use href="#icon-numbered-circle" /></svg>
             </button>
             <div class="tool-rail-divider"></div>
-            <button type="button" class="tool-btn" id="captureRegionButton" title="Capture region (OS native)">
+            <button type="button" class="tool-btn" id="captureRegionButton" data-hotkey-action="capture.region" data-title-base="Capture region" title="Capture region">
               <svg><use href="#icon-region-capture" /></svg>
             </button>
-            <button type="button" class="tool-btn" id="captureAllDisplaysButton" title="Capture all displays (in-app crop)">
+            <button type="button" class="tool-btn" id="captureAllDisplaysButton" data-hotkey-action="capture.allDisplays" data-title-base="Capture all displays" title="Capture all displays">
               <svg><use href="#icon-all-displays" /></svg>
             </button>
-            <button type="button" class="tool-btn" id="captureButton" title="Capture-screen">
+            <button type="button" class="tool-btn" id="captureButton" data-hotkey-action="capture.fullscreen" data-title-base="Capture full screen" title="Capture full screen">
               <svg><use href="#icon-capture" /></svg>
             </button>
             <button type="button" class="tool-btn" data-tool="crop" title="Crop (C)">
