@@ -1,0 +1,16 @@
+# Git LFS — track pre-built binaries shipped in-tree.
+# Keeps the main Git history small while letting clones pull usable artifacts
+# on demand. Run `git lfs install` after cloning, or `git lfs pull` to hydrate.
+
+# macOS app bundle executable (Mach-O, ~8 MB per build)
+wails/build/bin/**/Contents/MacOS/snapvector filter=lfs diff=lfs merge=lfs -text
+
+# Future: Windows and Linux release binaries
+wails/build/bin/**/snapvector.exe filter=lfs diff=lfs merge=lfs -text
+wails/build/bin/snapvector filter=lfs diff=lfs merge=lfs -text
+
+# Future: packaged installers
+wails/build/bin/**/*.dmg filter=lfs diff=lfs merge=lfs -text
+wails/build/bin/**/*.msi filter=lfs diff=lfs merge=lfs -text
+wails/build/bin/**/*.deb filter=lfs diff=lfs merge=lfs -text
+wails/build/bin/**/*.AppImage filter=lfs diff=lfs merge=lfs -text

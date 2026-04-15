@@ -2,6 +2,22 @@
 
 Go implementation of the SnapVector CLI, annotation/export pipeline, and the current Wails GUI shell.
 
+## Pre-built binaries
+
+Pre-built binaries under `build/bin/` are stored via [Git LFS](https://git-lfs.com/). After cloning, make sure LFS is installed and the pointers are hydrated:
+
+```bash
+brew install git-lfs                     # macOS; apt/choco equivalents work
+git lfs install
+git lfs pull                              # fetches the actual binary bytes
+```
+
+Currently shipped:
+
+- `build/bin/snapvector.app` — macOS arm64 (adhoc-signed; Gatekeeper will warn on first launch, see [§macOS code signing](#macos-code-signing--notarization) to ship signed builds)
+
+On first launch the app must be granted **Screen Recording** permission. macOS shows the dialog automatically on the first capture attempt; grant it then **fully quit and relaunch** (TCC doesn't apply mid-process).
+
 ## Build
 
 ```bash
@@ -106,7 +122,7 @@ CLI stdout always emits a single JSON document that follows the PRD top-level co
 
 ## Implementation notes
 
-- The macOS capture backend shells out to `/usr/sbin/screencapture`.
+- The macOS capture backend calls CoreGraphics directly via cgo (`CGDisplayCreateImage` + ImageIO PNG encode), keeping fullscreen and all-displays captures in-memory. Only the interactive region path still forks `/usr/sbin/screencapture -i` because CG has no magnifier-loupe equivalent. Screen Recording permission is checked with `CGPreflightScreenCaptureAccess`; the first denial triggers `CGRequestScreenCaptureAccess` so TCC registers the app and shows the system dialog.
 - The Linux capture backend uses D-Bus `org.freedesktop.portal.Screenshot` with `gnome-screenshot`/`grim` fallback.
 - The Windows capture backend uses `kbinani/screenshot` (Win32 GDI, CGo-free). Interactive region selection runs an embedded PowerShell script that renders the screen as a full-screen overlay with a rubber-band selector.
 - Windows clipboard writes PNG/JPG via `System.Drawing.Image` and SVG/PDF via `Clipboard.SetData` with MIME-type format names; both paths run PowerShell with `-STA` (required for COM clipboard).
@@ -175,7 +191,8 @@ Record measured latency instead of assuming PRD compliance.
 |---|---|---|---|
 | Windows | GUI | WebView2 Runtime | Win11 ✅ / Win10 ⚠️ |
 | Windows | Region capture | PowerShell + .NET Forms | ✅ all modern Windows |
-| macOS | Screenshot / clipboard | `swift` (Xcode CLT) | ⚠️ needs `xcode-select --install` |
+| macOS | Screenshot | CoreGraphics (cgo, in-binary) | ✅ system built-in (10.15+) |
+| macOS | Clipboard | `pbcopy` / AppKit | ✅ system built-in |
 | macOS | Export | `sips`, `cupsfilter` | ✅ system built-in |
 | macOS | GUI | WebKit | ✅ system built-in |
 | Linux | GUI | WebKit2GTK (`libwebkit2gtk-4.1`) | ⚠️ needs apt install |

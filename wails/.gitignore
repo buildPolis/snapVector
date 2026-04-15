@@ -4,6 +4,12 @@
 /build/darwin/*
 !/build/darwin/Info.plist
 !/build/darwin/Info.dev.plist
+!/build/bin/
+/build/bin/*
+!/build/bin/snapvector.app
+!/build/bin/snapvector.app/**
+# Ignore macOS filesystem cruft that sneaks into the bundle
+/build/bin/snapvector.app/**/.DS_Store
 /vendor/
 *.test
 *.out
