@@ -23,24 +23,24 @@ func NewPlatformCapturer() Capturer { return darwinCapturer{} }
 type darwinCapturer struct{}
 
 func (darwinCapturer) CaptureFullScreen(ctx context.Context) (PNG, Meta, error) {
-	displays, err := listDarwinDisplays(ctx)
+	probe, err := probeDarwinDisplays(ctx)
 	if err == nil {
-		if display, ok := displayUnderCursor(displays); ok {
+		if display, ok := displayUnderCursor(probe.Displays); ok {
 			return captureDisplay(ctx, display)
 		}
-		if len(displays) > 1 {
-			return captureAllDisplays(ctx, displays)
+		if len(probe.Displays) > 1 {
+			return captureAllDisplaysFromProbe(ctx, probe)
 		}
 	}
 	return captureWithArgs(ctx, fullScreenCaptureArgs()...)
 }
 
 func (darwinCapturer) CaptureAllDisplays(ctx context.Context) (PNG, Meta, error) {
-	displays, err := listDarwinDisplays(ctx)
+	probe, err := probeDarwinDisplays(ctx)
 	if err != nil {
 		return nil, Meta{}, err
 	}
-	return captureAllDisplays(ctx, displays)
+	return captureAllDisplaysFromProbe(ctx, probe)
 }
 
 func (darwinCapturer) CaptureInteractiveRegion(ctx context.Context) (PNG, Meta, error) {
@@ -65,6 +65,21 @@ type darwinDisplay struct {
 	Height         int     `json:"height"`
 	ScaleFactor    float64 `json:"scaleFactor"`
 	ContainsCursor bool    `json:"containsCursor"`
+}
+
+// darwinVirtualRect describes the bounding box of all active displays in the
+// coordinate system expected by `screencapture -R` (top-left origin of the
+// primary display, in points — NOT backing pixels).
+type darwinVirtualRect struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+type darwinDisplayProbe struct {
+	Displays    []darwinDisplay   `json:"displays"`
+	VirtualRect darwinVirtualRect `json:"virtualRect"`
 }
 
 type displayCapture struct {
@@ -122,6 +137,93 @@ func captureWithArgs(ctx context.Context, args ...string) (PNG, Meta, error) {
 	return PNG(raw), Meta{
 		Width:  cfg.Width,
 		Height: cfg.Height,
+	}, nil
+}
+
+// captureAllDisplaysFromProbe is the preferred multi-display path: a single
+// `screencapture -R` invocation covering the virtual bounding rect. This
+// avoids N process forks and N disk round-trips that the N×`-D i` + compose
+// path (captureAllDisplays) incurs.
+//
+// Trade-off: in mixed-DPI layouts `screencapture -R` captures at a unified
+// resolution, so non-primary-DPI displays may be up/downsampled. Set
+// SNAPVECTOR_ALL_DISPLAYS_MODE=compose to force the per-display fallback when
+// pixel-perfect resolution on every display matters more than latency.
+func captureAllDisplaysFromProbe(ctx context.Context, probe *darwinDisplayProbe) (PNG, Meta, error) {
+	if os.Getenv("SNAPVECTOR_ALL_DISPLAYS_MODE") == "compose" {
+		return captureAllDisplays(ctx, probe.Displays)
+	}
+	if probe.VirtualRect.Width <= 0 || probe.VirtualRect.Height <= 0 {
+		log.Printf("snapvector capture: invalid virtualRect %+v, using compose fallback", probe.VirtualRect)
+		return captureAllDisplays(ctx, probe.Displays)
+	}
+	png, meta, err := captureAllDisplaysViaRect(ctx, probe.VirtualRect)
+	if err == nil {
+		return png, meta, nil
+	}
+	// Permission errors should surface immediately rather than trigger a
+	// fallback that will also fail (and confuse the user with two errors).
+	if _, ok := err.(*PermissionDeniedError); ok {
+		return nil, Meta{}, err
+	}
+	log.Printf("snapvector capture: -R path failed (%v), falling back to compose", err)
+	return captureAllDisplays(ctx, probe.Displays)
+}
+
+func captureAllDisplaysViaRect(ctx context.Context, rect darwinVirtualRect) (PNG, Meta, error) {
+	tempDir, err := os.MkdirTemp("", "snapvector-capture-*")
+	if err != nil {
+		return nil, Meta{}, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	path := filepath.Join(tempDir, "all-displays.png")
+	rectArg := fmt.Sprintf("%d,%d,%d,%d", rect.X, rect.Y, rect.Width, rect.Height)
+	cmd := exec.CommandContext(ctx, "/usr/sbin/screencapture", "-x", "-t", "png", "-R", rectArg, path)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	started := time.Now()
+	runErr := cmd.Run()
+	elapsed := time.Since(started)
+	log.Printf("snapvector capture: screencapture -R %s -> elapsed=%s stderr=%q err=%v",
+		rectArg, elapsed.Round(time.Millisecond), strings.TrimSpace(stderr.String()), runErr)
+	if runErr != nil {
+		return nil, Meta{}, classifyDarwinError(runErr, stderr.String())
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if permissionDenied(stderr.String()) {
+			return nil, Meta{}, &PermissionDeniedError{
+				Platform: "darwin",
+				Stderr:   strings.TrimSpace(stderr.String()),
+			}
+		}
+		return nil, Meta{}, fmt.Errorf("read capture file: %w", err)
+	}
+	if len(raw) == 0 {
+		if permissionDenied(stderr.String()) {
+			return nil, Meta{}, &PermissionDeniedError{
+				Platform: "darwin",
+				Stderr:   strings.TrimSpace(stderr.String()),
+			}
+		}
+		return nil, Meta{}, fmt.Errorf("capture file is empty")
+	}
+
+	cfg, err := png.DecodeConfig(bytes.NewReader(raw))
+	if err != nil {
+		return nil, Meta{}, fmt.Errorf("decode capture png: %w", err)
+	}
+
+	return PNG(raw), Meta{
+		DisplayID: "all",
+		X:         rect.X,
+		Y:         rect.Y,
+		Width:     cfg.Width,
+		Height:    cfg.Height,
 	}, nil
 }
 
@@ -247,7 +349,7 @@ func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
 	}, nil
 }
 
-func listDarwinDisplays(ctx context.Context) ([]darwinDisplay, error) {
+func probeDarwinDisplays(ctx context.Context) (*darwinDisplayProbe, error) {
 	tempDir, err := os.MkdirTemp("", "snapvector-displays-*")
 	if err != nil {
 		return nil, fmt.Errorf("create display temp dir: %w", err)
@@ -265,15 +367,25 @@ func listDarwinDisplays(ctx context.Context) ([]darwinDisplay, error) {
 		return nil, fmt.Errorf("list darwin displays via swift: %w (%s)", err, string(output))
 	}
 
-	var displays []darwinDisplay
-	if err := json.Unmarshal(output, &displays); err != nil {
+	var probe darwinDisplayProbe
+	if err := json.Unmarshal(output, &probe); err != nil {
 		return nil, fmt.Errorf("decode display probe output: %w (%s)", err, string(output))
 	}
-	if len(displays) == 0 {
+	if len(probe.Displays) == 0 {
 		return nil, fmt.Errorf("display probe returned no active displays")
 	}
 
-	return displays, nil
+	return &probe, nil
+}
+
+// listDarwinDisplays is a legacy thin wrapper retained for tests and any
+// future caller that only needs the per-display list.
+func listDarwinDisplays(ctx context.Context) ([]darwinDisplay, error) {
+	probe, err := probeDarwinDisplays(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return probe.Displays, nil
 }
 
 func displayUnderCursor(displays []darwinDisplay) (darwinDisplay, bool) {
@@ -285,14 +397,26 @@ func displayUnderCursor(displays []darwinDisplay) (darwinDisplay, bool) {
 	return darwinDisplay{}, false
 }
 
+// swiftDisplayProbe enumerates NSScreen.screens and emits two pieces of data:
+//   1. Per-display backing-pixel rects (used by the per-display capture path
+//      and the compose fallback — preserves the historical contract).
+//   2. A virtualRect describing the union of all displays in the coordinate
+//      system that `screencapture -R` expects (top-left origin of the primary
+//      display, in POINTS not backing pixels). Pre-computing this in Swift
+//      keeps Go free of NSScreen coordinate conversion.
 const swiftDisplayProbe = `import AppKit
 import Foundation
 
 let cursor = NSEvent.mouseLocation
-let screens = NSScreen.screens.enumerated().map { index, screen -> [String: Any] in
+let screens = NSScreen.screens
+let primary = screens.first(where: { $0.frame.origin == .zero }) ?? screens.first!
+let primaryHeight = primary.frame.size.height
+
+var displays: [[String: Any]] = []
+for (index, screen) in screens.enumerated() {
   let frame = screen.frame
   let backing = screen.convertRectToBacking(frame)
-  return [
+  displays.append([
     "index": index + 1,
     "x": Int(backing.origin.x.rounded()),
     "y": Int(backing.origin.y.rounded()),
@@ -300,10 +424,38 @@ let screens = NSScreen.screens.enumerated().map { index, screen -> [String: Any]
     "height": Int(backing.size.height.rounded()),
     "scaleFactor": screen.backingScaleFactor,
     "containsCursor": frame.contains(cursor),
-  ]
+  ])
 }
 
-let data = try JSONSerialization.data(withJSONObject: screens, options: [])
+var minX = CGFloat.infinity
+var maxX = -CGFloat.infinity
+var minY = CGFloat.infinity
+var maxY = -CGFloat.infinity
+for screen in screens {
+  let f = screen.frame
+  // NSScreen uses bottom-left origin; screencapture -R uses top-left origin
+  // of the primary display. Invert Y around primaryHeight.
+  let topY = primaryHeight - (f.origin.y + f.size.height)
+  let bottomY = primaryHeight - f.origin.y
+  minX = min(minX, f.origin.x)
+  maxX = max(maxX, f.origin.x + f.size.width)
+  minY = min(minY, topY)
+  maxY = max(maxY, bottomY)
+}
+
+let virtualRect: [String: Int] = [
+  "x": Int(minX.rounded()),
+  "y": Int(minY.rounded()),
+  "width": Int((maxX - minX).rounded()),
+  "height": Int((maxY - minY).rounded()),
+]
+
+let payload: [String: Any] = [
+  "displays": displays,
+  "virtualRect": virtualRect,
+]
+
+let data = try JSONSerialization.data(withJSONObject: payload, options: [])
 FileHandle.standardOutput.write(data)
 `
 
