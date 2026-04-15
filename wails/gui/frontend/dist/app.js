@@ -174,6 +174,7 @@ function bindUI() {
   els.canvasStage.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
+  els.canvasHost?.addEventListener("wheel", onCanvasWheel, { passive: false });
   window.addEventListener("click", (event) => {
     if (!event.target.closest(".menu-shell")) {
       closeFileMenu();
@@ -1261,6 +1262,27 @@ function changeZoom(delta) {
   state.zoom = clamp(state.zoom + delta, 0.1, 3);
   state.zoomAutoFit = false;
   render();
+}
+
+function onCanvasWheel(event) {
+  if (!state.capture) return;
+  event.preventDefault();
+  const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const nextZoom = clamp(state.zoom * factor, 0.1, 3);
+  if (Math.abs(nextZoom - state.zoom) < 0.0001) return;
+
+  const host = els.canvasHost;
+  const rect = host.getBoundingClientRect();
+  const cursorX = event.clientX - rect.left + host.scrollLeft;
+  const cursorY = event.clientY - rect.top + host.scrollTop;
+  const ratio = nextZoom / state.zoom;
+
+  state.zoom = nextZoom;
+  state.zoomAutoFit = false;
+  render();
+
+  host.scrollLeft = cursorX * ratio - (event.clientX - rect.left);
+  host.scrollTop = cursorY * ratio - (event.clientY - rect.top);
 }
 
 function toPayload(ann) {
