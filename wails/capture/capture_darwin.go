@@ -5,7 +5,6 @@ package capture
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"image"
 	"image/draw"
@@ -24,15 +23,16 @@ type darwinCapturer struct{}
 
 func (darwinCapturer) CaptureFullScreen(ctx context.Context) (PNG, Meta, error) {
 	probe, err := probeDarwinDisplays(ctx)
-	if err == nil {
-		if display, ok := displayUnderCursor(probe.Displays); ok {
-			return captureDisplay(ctx, display)
-		}
-		if len(probe.Displays) > 1 {
-			return captureAllDisplaysFromProbe(ctx, probe)
-		}
+	if err != nil {
+		return nil, Meta{}, err
 	}
-	return captureWithArgs(ctx, fullScreenCaptureArgs()...)
+	if display, ok := displayUnderCursor(probe.Displays); ok {
+		return captureDisplay(ctx, display)
+	}
+	if len(probe.Displays) == 1 {
+		return captureDisplay(ctx, probe.Displays[0])
+	}
+	return captureAllDisplaysFromProbe(ctx, probe)
 }
 
 func (darwinCapturer) CaptureAllDisplays(ctx context.Context) (PNG, Meta, error) {
@@ -47,13 +47,11 @@ func (darwinCapturer) CaptureInteractiveRegion(ctx context.Context) (PNG, Meta, 
 	return captureWithArgs(ctx, interactiveRegionCaptureArgs()...)
 }
 
-func fullScreenCaptureArgs() []string {
-	return []string{"-x", "-t", "png"}
-}
-
 func interactiveRegionCaptureArgs() []string {
 	// -s forces selection-only mode so a stray click can't fall into window
-	// capture (which would otherwise grab the Wails app itself).
+	// capture (which would otherwise grab the Wails app itself). Interactive
+	// region is the one path we still fork screencapture for — CoreGraphics
+	// has no equivalent of the native magnifier loupe overlay.
 	return []string{"-i", "-s", "-x", "-t", "png"}
 }
 
@@ -65,11 +63,18 @@ type darwinDisplay struct {
 	Height         int     `json:"height"`
 	ScaleFactor    float64 `json:"scaleFactor"`
 	ContainsCursor bool    `json:"containsCursor"`
+
+	// cgDisplayID holds the CGDirectDisplayID from CoreGraphics. It is only
+	// populated by cgListDisplays; test fixtures that build darwinDisplay via
+	// struct literals leave it zero, which is fine because those fixtures
+	// never reach a real capture path.
+	cgDisplayID uint32
 }
 
-// darwinVirtualRect describes the bounding box of all active displays in the
-// coordinate system expected by `screencapture -R` (top-left origin of the
-// primary display, in points — NOT backing pixels).
+// darwinVirtualRect is the union of all display frames in backing pixels.
+// Retained for API compatibility with captureAllDisplaysViaRect; under cgo
+// we no longer drive a `screencapture -R` call off it, but compose-path
+// callers still find it useful.
 type darwinVirtualRect struct {
 	X      int `json:"x"`
 	Y      int `json:"y"`
@@ -87,6 +92,8 @@ type displayCapture struct {
 	Image   image.Image
 }
 
+// captureWithArgs forks /usr/sbin/screencapture. Only the interactive region
+// path uses it now; all non-interactive captures go through cgo.
 func captureWithArgs(ctx context.Context, args ...string) (PNG, Meta, error) {
 	tempDir, err := os.MkdirTemp("", "snapvector-capture-*")
 	if err != nil {
@@ -140,77 +147,97 @@ func captureWithArgs(ctx context.Context, args ...string) (PNG, Meta, error) {
 	}, nil
 }
 
-// captureAllDisplaysFromProbe is the preferred multi-display path: a single
-// `screencapture -R` invocation covering the virtual bounding rect. This
-// avoids N process forks and N disk round-trips that the N×`-D i` + compose
-// path (captureAllDisplays) incurs.
-//
-// Trade-off: in mixed-DPI layouts `screencapture -R` captures at a unified
-// resolution, so non-primary-DPI displays may be up/downsampled. Set
-// SNAPVECTOR_ALL_DISPLAYS_MODE=compose to force the per-display fallback when
-// pixel-perfect resolution on every display matters more than latency.
+// captureAllDisplaysFromProbe dispatches multi-display capture. Under cgo both
+// "compose" and default modes share the same implementation (CG has no
+// `-R` virtual-rect equivalent), so the env var is a no-op but kept for
+// backwards compatibility with existing user workarounds.
 func captureAllDisplaysFromProbe(ctx context.Context, probe *darwinDisplayProbe) (PNG, Meta, error) {
+	if probe == nil || len(probe.Displays) == 0 {
+		return nil, Meta{}, fmt.Errorf("no displays to capture")
+	}
 	if os.Getenv("SNAPVECTOR_ALL_DISPLAYS_MODE") == "compose" {
-		return captureAllDisplays(ctx, probe.Displays)
+		log.Printf("snapvector capture: SNAPVECTOR_ALL_DISPLAYS_MODE=compose (noop under cgo; both modes share path)")
 	}
-	if probe.VirtualRect.Width <= 0 || probe.VirtualRect.Height <= 0 {
-		log.Printf("snapvector capture: invalid virtualRect %+v, using compose fallback", probe.VirtualRect)
-		return captureAllDisplays(ctx, probe.Displays)
-	}
-	png, meta, err := captureAllDisplaysViaRect(ctx, probe.VirtualRect)
-	if err == nil {
-		return png, meta, nil
-	}
-	// Permission errors should surface immediately rather than trigger a
-	// fallback that will also fail (and confuse the user with two errors).
-	if _, ok := err.(*PermissionDeniedError); ok {
-		return nil, Meta{}, err
-	}
-	log.Printf("snapvector capture: -R path failed (%v), falling back to compose", err)
 	return captureAllDisplays(ctx, probe.Displays)
 }
 
+// captureAllDisplaysViaRect is retained as a function name for test
+// compatibility. Under cgo it delegates to the standard compose path — the
+// rect argument is informational only.
 func captureAllDisplaysViaRect(ctx context.Context, rect darwinVirtualRect) (PNG, Meta, error) {
-	tempDir, err := os.MkdirTemp("", "snapvector-capture-*")
+	probe, err := probeDarwinDisplays(ctx)
 	if err != nil {
-		return nil, Meta{}, fmt.Errorf("create temp dir: %w", err)
+		return nil, Meta{}, err
 	}
-	defer os.RemoveAll(tempDir)
+	_ = rect
+	return captureAllDisplays(ctx, probe.Displays)
+}
 
-	path := filepath.Join(tempDir, "all-displays.png")
-	rectArg := fmt.Sprintf("%d,%d,%d,%d", rect.X, rect.Y, rect.Width, rect.Height)
-	cmd := exec.CommandContext(ctx, "/usr/sbin/screencapture", "-x", "-t", "png", "-R", rectArg, path)
+func captureAllDisplays(ctx context.Context, displays []darwinDisplay) (PNG, Meta, error) {
+	if !cgPreflightScreenCapture() {
+		return nil, Meta{}, &PermissionDeniedError{
+			Platform: "darwin",
+			Stderr:   "CGPreflightScreenCaptureAccess returned false",
+		}
+	}
+	_ = ctx // CG calls are synchronous and non-cancellable; ctx.Deadline is advisory.
 
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	captures := make([]displayCapture, 0, len(displays))
+	for _, display := range displays {
+		if display.cgDisplayID == 0 {
+			return nil, Meta{}, fmt.Errorf("display %d has no CGDisplayID (not from cgListDisplays)", display.Index)
+		}
+		started := time.Now()
+		raw, err := cgCaptureDisplayPNG(display.cgDisplayID)
+		log.Printf("snapvector capture: CGDisplayCreateImage id=%d index=%d -> elapsed=%s err=%v",
+			display.cgDisplayID, display.Index, time.Since(started).Round(time.Millisecond), err)
+		if err != nil {
+			if !cgPreflightScreenCapture() {
+				return nil, Meta{}, &PermissionDeniedError{
+					Platform: "darwin",
+					Stderr:   "CGPreflightScreenCaptureAccess returned false mid-capture",
+				}
+			}
+			return nil, Meta{}, err
+		}
+		img, err := png.Decode(bytes.NewReader(raw))
+		if err != nil {
+			return nil, Meta{}, fmt.Errorf("decode display %d png: %w", display.Index, err)
+		}
+		display.Width = img.Bounds().Dx()
+		display.Height = img.Bounds().Dy()
+		captures = append(captures, displayCapture{
+			Display: display,
+			Image:   img,
+		})
+	}
+	return composeDisplayCaptures(captures)
+}
+
+func captureDisplay(ctx context.Context, display darwinDisplay) (PNG, Meta, error) {
+	_ = ctx
+	if !cgPreflightScreenCapture() {
+		return nil, Meta{}, &PermissionDeniedError{
+			Platform: "darwin",
+			Stderr:   "CGPreflightScreenCaptureAccess returned false",
+		}
+	}
+	if display.cgDisplayID == 0 {
+		return nil, Meta{}, fmt.Errorf("display %d has no CGDisplayID (not from cgListDisplays)", display.Index)
+	}
 
 	started := time.Now()
-	runErr := cmd.Run()
-	elapsed := time.Since(started)
-	log.Printf("snapvector capture: screencapture -R %s -> elapsed=%s stderr=%q err=%v",
-		rectArg, elapsed.Round(time.Millisecond), strings.TrimSpace(stderr.String()), runErr)
-	if runErr != nil {
-		return nil, Meta{}, classifyDarwinError(runErr, stderr.String())
-	}
-
-	raw, err := os.ReadFile(path)
+	raw, err := cgCaptureDisplayPNG(display.cgDisplayID)
+	log.Printf("snapvector capture: CGDisplayCreateImage id=%d index=%d -> elapsed=%s err=%v",
+		display.cgDisplayID, display.Index, time.Since(started).Round(time.Millisecond), err)
 	if err != nil {
-		if permissionDenied(stderr.String()) {
+		if !cgPreflightScreenCapture() {
 			return nil, Meta{}, &PermissionDeniedError{
 				Platform: "darwin",
-				Stderr:   strings.TrimSpace(stderr.String()),
+				Stderr:   "CGPreflightScreenCaptureAccess returned false after capture attempt",
 			}
 		}
-		return nil, Meta{}, fmt.Errorf("read capture file: %w", err)
-	}
-	if len(raw) == 0 {
-		if permissionDenied(stderr.String()) {
-			return nil, Meta{}, &PermissionDeniedError{
-				Platform: "darwin",
-				Stderr:   strings.TrimSpace(stderr.String()),
-			}
-		}
-		return nil, Meta{}, fmt.Errorf("capture file is empty")
+		return nil, Meta{}, err
 	}
 
 	cfg, err := png.DecodeConfig(bytes.NewReader(raw))
@@ -219,85 +246,11 @@ func captureAllDisplaysViaRect(ctx context.Context, rect darwinVirtualRect) (PNG
 	}
 
 	return PNG(raw), Meta{
-		DisplayID: "all",
-		X:         rect.X,
-		Y:         rect.Y,
-		Width:     cfg.Width,
-		Height:    cfg.Height,
-	}, nil
-}
-
-func captureAllDisplays(ctx context.Context, displays []darwinDisplay) (PNG, Meta, error) {
-	tempDir, err := os.MkdirTemp("", "snapvector-capture-*")
-	if err != nil {
-		return nil, Meta{}, fmt.Errorf("create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	captures := make([]displayCapture, 0, len(displays))
-	for _, display := range displays {
-		path := filepath.Join(tempDir, fmt.Sprintf("display-%d.png", display.Index))
-		cmd := exec.CommandContext(ctx, "/usr/sbin/screencapture", "-x", "-t", "png", "-D", fmt.Sprintf("%d", display.Index), path)
-
-		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-		if err := cmd.Run(); err != nil {
-			return nil, Meta{}, classifyDarwinError(err, stderr.String())
-		}
-
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return nil, Meta{}, fmt.Errorf("read display capture: %w", err)
-		}
-		img, err := png.Decode(bytes.NewReader(raw))
-		if err != nil {
-			return nil, Meta{}, fmt.Errorf("decode display capture png: %w", err)
-		}
-
-		display.Width = img.Bounds().Dx()
-		display.Height = img.Bounds().Dy()
-		captures = append(captures, displayCapture{
-			Display: display,
-			Image:   img,
-		})
-	}
-
-	return composeDisplayCaptures(captures)
-}
-
-func captureDisplay(ctx context.Context, display darwinDisplay) (PNG, Meta, error) {
-	tempDir, err := os.MkdirTemp("", "snapvector-capture-*")
-	if err != nil {
-		return nil, Meta{}, fmt.Errorf("create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	path := filepath.Join(tempDir, fmt.Sprintf("display-%d.png", display.Index))
-	cmd := exec.CommandContext(ctx, "/usr/sbin/screencapture", "-x", "-t", "png", "-D", fmt.Sprintf("%d", display.Index), path)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return nil, Meta{}, classifyDarwinError(err, stderr.String())
-	}
-
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, Meta{}, fmt.Errorf("read display capture: %w", err)
-	}
-	cfg, err := png.DecodeConfig(bytes.NewReader(raw))
-	if err != nil {
-		return nil, Meta{}, fmt.Errorf("decode display capture png: %w", err)
-	}
-
-	display.Width = cfg.Width
-	display.Height = cfg.Height
-	return PNG(raw), Meta{
 		DisplayID:   fmt.Sprintf("%d", display.Index),
 		X:           display.X,
 		Y:           display.Y,
-		Width:       display.Width,
-		Height:      display.Height,
+		Width:       cfg.Width,
+		Height:      cfg.Height,
 		ScaleFactor: display.ScaleFactor,
 	}, nil
 }
@@ -349,43 +302,40 @@ func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
 	}, nil
 }
 
-func probeDarwinDisplays(ctx context.Context) (*darwinDisplayProbe, error) {
-	tempDir, err := os.MkdirTemp("", "snapvector-displays-*")
-	if err != nil {
-		return nil, fmt.Errorf("create display temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	scriptPath := filepath.Join(tempDir, "list_displays.swift")
-	if err := os.WriteFile(scriptPath, []byte(swiftDisplayProbe), 0o600); err != nil {
-		return nil, fmt.Errorf("write display probe script: %w", err)
-	}
-
-	cmd := exec.CommandContext(ctx, "swift", scriptPath)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("list darwin displays via swift: %w (%s)", err, string(output))
-	}
-
-	var probe darwinDisplayProbe
-	if err := json.Unmarshal(output, &probe); err != nil {
-		return nil, fmt.Errorf("decode display probe output: %w (%s)", err, string(output))
-	}
-	if len(probe.Displays) == 0 {
-		return nil, fmt.Errorf("display probe returned no active displays")
-	}
-
-	return &probe, nil
-}
-
-// listDarwinDisplays is a legacy thin wrapper retained for tests and any
-// future caller that only needs the per-display list.
-func listDarwinDisplays(ctx context.Context) ([]darwinDisplay, error) {
-	probe, err := probeDarwinDisplays(ctx)
+func probeDarwinDisplays(_ context.Context) (*darwinDisplayProbe, error) {
+	displays, err := cgListDisplays()
 	if err != nil {
 		return nil, err
 	}
-	return probe.Displays, nil
+	return &darwinDisplayProbe{
+		Displays:    displays,
+		VirtualRect: computeVirtualRect(displays),
+	}, nil
+}
+
+func computeVirtualRect(displays []darwinDisplay) darwinVirtualRect {
+	if len(displays) == 0 {
+		return darwinVirtualRect{}
+	}
+	minX := displays[0].X
+	minY := displays[0].Y
+	maxX := displays[0].X + displays[0].Width
+	maxY := displays[0].Y + displays[0].Height
+	for _, d := range displays[1:] {
+		if d.X < minX {
+			minX = d.X
+		}
+		if d.Y < minY {
+			minY = d.Y
+		}
+		if right := d.X + d.Width; right > maxX {
+			maxX = right
+		}
+		if bot := d.Y + d.Height; bot > maxY {
+			maxY = bot
+		}
+	}
+	return darwinVirtualRect{X: minX, Y: minY, Width: maxX - minX, Height: maxY - minY}
 }
 
 func displayUnderCursor(displays []darwinDisplay) (darwinDisplay, bool) {
@@ -397,68 +347,10 @@ func displayUnderCursor(displays []darwinDisplay) (darwinDisplay, bool) {
 	return darwinDisplay{}, false
 }
 
-// swiftDisplayProbe enumerates NSScreen.screens and emits two pieces of data:
-//   1. Per-display backing-pixel rects (used by the per-display capture path
-//      and the compose fallback — preserves the historical contract).
-//   2. A virtualRect describing the union of all displays in the coordinate
-//      system that `screencapture -R` expects (top-left origin of the primary
-//      display, in POINTS not backing pixels). Pre-computing this in Swift
-//      keeps Go free of NSScreen coordinate conversion.
-const swiftDisplayProbe = `import AppKit
-import Foundation
-
-let cursor = NSEvent.mouseLocation
-let screens = NSScreen.screens
-let primary = screens.first(where: { $0.frame.origin == .zero }) ?? screens.first!
-let primaryHeight = primary.frame.size.height
-
-var displays: [[String: Any]] = []
-for (index, screen) in screens.enumerated() {
-  let frame = screen.frame
-  let backing = screen.convertRectToBacking(frame)
-  displays.append([
-    "index": index + 1,
-    "x": Int(backing.origin.x.rounded()),
-    "y": Int(backing.origin.y.rounded()),
-    "width": Int(backing.size.width.rounded()),
-    "height": Int(backing.size.height.rounded()),
-    "scaleFactor": screen.backingScaleFactor,
-    "containsCursor": frame.contains(cursor),
-  ])
-}
-
-var minX = CGFloat.infinity
-var maxX = -CGFloat.infinity
-var minY = CGFloat.infinity
-var maxY = -CGFloat.infinity
-for screen in screens {
-  let f = screen.frame
-  // NSScreen uses bottom-left origin; screencapture -R uses top-left origin
-  // of the primary display. Invert Y around primaryHeight.
-  let topY = primaryHeight - (f.origin.y + f.size.height)
-  let bottomY = primaryHeight - f.origin.y
-  minX = min(minX, f.origin.x)
-  maxX = max(maxX, f.origin.x + f.size.width)
-  minY = min(minY, topY)
-  maxY = max(maxY, bottomY)
-}
-
-let virtualRect: [String: Int] = [
-  "x": Int(minX.rounded()),
-  "y": Int(minY.rounded()),
-  "width": Int((maxX - minX).rounded()),
-  "height": Int((maxY - minY).rounded()),
-]
-
-let payload: [String: Any] = [
-  "displays": displays,
-  "virtualRect": virtualRect,
-]
-
-let data = try JSONSerialization.data(withJSONObject: payload, options: [])
-FileHandle.standardOutput.write(data)
-`
-
+// classifyDarwinError maps a screencapture subprocess failure into our error
+// taxonomy. Only the interactive region path still hits this; cgo-based
+// captures surface their own error shape (permission via preflight, NULL
+// image otherwise).
 func classifyDarwinError(runErr error, stderr string) error {
 	if permissionDenied(stderr) {
 		return &PermissionDeniedError{
@@ -469,7 +361,6 @@ func classifyDarwinError(runErr error, stderr string) error {
 	if exitErr, ok := runErr.(*exec.ExitError); ok && exitErr.ExitCode() == 1 && strings.TrimSpace(stderr) == "" {
 		return fmt.Errorf("interactive capture cancelled")
 	}
-
 	return fmt.Errorf("screencapture failed: %w (stderr=%q)", runErr, strings.TrimSpace(stderr))
 }
 

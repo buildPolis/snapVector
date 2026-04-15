@@ -43,19 +43,6 @@ func TestDarwinCapturerReturnsDecodablePNG(t *testing.T) {
 	}
 }
 
-func TestFullScreenCaptureArgsDoNotPinDisplayOne(t *testing.T) {
-	args := fullScreenCaptureArgs()
-
-	if len(args) == 0 {
-		t.Fatal("expected non-empty screencapture args")
-	}
-	for i, arg := range args {
-		if arg == "-D" {
-			t.Fatalf("unexpected display pinning flag -D at index %d in %v", i, args)
-		}
-	}
-}
-
 func TestInteractiveRegionCaptureArgsRemainInteractive(t *testing.T) {
 	args := interactiveRegionCaptureArgs()
 
@@ -124,24 +111,26 @@ func TestComposeDisplayCapturesUsesGlobalBackingCoordinates(t *testing.T) {
 	}
 }
 
-func TestCaptureAllDisplaysViaRectFormatsArgs(t *testing.T) {
+func TestCaptureAllDisplaysSmoke(t *testing.T) {
 	if testing.Short() {
 		t.Skip("requires screen recording permission")
 	}
-	// Smoke test: a 1x1 capture should still return a decodable PNG, proving
-	// the -R argument round-trips through screencapture without coordinate
-	// translation bugs in the Go layer.
-	rect := darwinVirtualRect{X: 0, Y: 0, Width: 1, Height: 1}
+	// End-to-end: enumerate displays via cgo, capture each, compose. Verifies
+	// the CG → ImageIO → compose pipeline round-trips to a decodable PNG
+	// without needing any filesystem or subprocess.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	raw, meta, err := captureAllDisplaysViaRect(ctx, rect)
+	probe, err := probeDarwinDisplays(ctx)
 	if err != nil {
-		// permission errors are acceptable in CI but should be the only failure mode
+		t.Fatalf("probeDarwinDisplays: %v", err)
+	}
+	raw, meta, err := captureAllDisplaysFromProbe(ctx, probe)
+	if err != nil {
 		if _, ok := err.(*PermissionDeniedError); ok {
 			t.Skip("screen recording permission not granted")
 		}
-		t.Fatalf("captureAllDisplaysViaRect failed: %v", err)
+		t.Fatalf("captureAllDisplaysFromProbe failed: %v", err)
 	}
 	if len(raw) < 50 {
 		t.Fatalf("PNG suspiciously small: %d bytes", len(raw))
@@ -149,37 +138,37 @@ func TestCaptureAllDisplaysViaRectFormatsArgs(t *testing.T) {
 	if meta.Width <= 0 || meta.Height <= 0 {
 		t.Fatalf("meta has non-positive dims: %+v", meta)
 	}
-	if meta.DisplayID != "all" {
-		t.Fatalf("DisplayID = %q, want \"all\"", meta.DisplayID)
+	if meta.DisplayID != "all" && len(probe.Displays) > 1 {
+		t.Fatalf("DisplayID = %q, want \"all\" for multi-display", meta.DisplayID)
 	}
 }
 
-func TestCaptureAllDisplaysFromProbeFallsBackOnInvalidRect(t *testing.T) {
-	probe := &darwinDisplayProbe{
-		Displays: []darwinDisplay{
-			{Index: 1, X: 0, Y: 0, Width: 4, Height: 2},
-		},
-		VirtualRect: darwinVirtualRect{}, // zero rect should trigger fallback
-	}
+func TestCaptureAllDisplaysFromProbeRejectsEmpty(t *testing.T) {
+	// Empty probe must not panic and must return a clean error — callers rely
+	// on this guard when displays disappear between enumeration and capture.
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	// captureAllDisplays will try to spawn screencapture and may fail or be
-	// cancelled — that's fine; we only care that the dispatcher RECOGNISES
-	// the invalid rect and routes to the compose path rather than calling
-	// captureAllDisplaysViaRect with bad args. We assert on the absence of a
-	// "screencapture -R 0,0,0,0" log line indirectly by ensuring the call
-	// does not panic and returns *some* error path that isn't from -R.
-	_, _, err := captureAllDisplaysFromProbe(ctx, probe)
-	// We expect either a permission error, a cancel error, or a screencapture
-	// failure from the compose path. The key invariant is that the function
-	// returned without panicking on the zero rect.
+	_, _, err := captureAllDisplaysFromProbe(ctx, &darwinDisplayProbe{})
 	if err == nil {
-		// Permission was granted and compose succeeded — also acceptable.
-		return
+		t.Fatal("expected error for empty probe, got nil")
 	}
-	if ctx.Err() == nil && err == nil {
-		t.Fatalf("expected an error or success, got neither")
+
+	_, _, err = captureAllDisplaysFromProbe(ctx, nil)
+	if err == nil {
+		t.Fatal("expected error for nil probe, got nil")
+	}
+}
+
+func TestPermissionDeniedErrorShape(t *testing.T) {
+	// Regression guard: the cgo rewrite must continue to surface the same
+	// error shape that cli.writeCaptureError pattern-matches against.
+	err := &PermissionDeniedError{Platform: "darwin", Stderr: "diagnostic text"}
+	if err.Error() != "screen capture permission denied" {
+		t.Fatalf("Error() = %q", err.Error())
+	}
+	if err.Platform != "darwin" {
+		t.Fatalf("Platform = %q", err.Platform)
 	}
 }
 
