@@ -25,6 +25,7 @@ const state = {
   pointer: { x: 0, y: 0 },
   zoom: DEFAULT_ZOOM,
   pan: { x: 0, y: 0 },
+  inspectorCollapsed: false,
   document: {
     path: "",
     name: "Untitled",
@@ -76,6 +77,7 @@ const els = {
   copyButton: document.getElementById("copyButton"),
   exportButton: document.getElementById("exportButton"),
   exportFormat: document.getElementById("exportFormat"),
+  toggleInspectorButton: document.getElementById("toggleInspectorButton"),
   canvasHost: document.getElementById("canvasHost"),
   canvasStage: document.getElementById("canvasStage"),
   captureImage: document.getElementById("captureImage"),
@@ -164,6 +166,10 @@ function bindUI() {
   els.captureAllDisplaysButton.addEventListener("click", () => captureScreen("all-displays"));
   els.exportButton.addEventListener("click", () => exportCurrent(false));
   els.copyButton.addEventListener("click", () => exportCurrent(true));
+  els.toggleInspectorButton?.addEventListener("click", () => {
+    state.inspectorCollapsed = !state.inspectorCollapsed;
+    render();
+  });
 
   els.canvasStage.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
@@ -444,13 +450,26 @@ function onPointerDown(event) {
     return;
   }
 
-  if (state.tool === "select" && state.zoom > 1) {
+  if (state.tool === "select") {
+    state.selectedId = null;
     state.action = { kind: "pan", originClientX: event.clientX, originClientY: event.clientY, pan: { ...state.pan } };
+    updateCanvasCursor();
+    render();
     return;
   }
 
   state.selectedId = null;
   render();
+}
+
+function updateCanvasCursor() {
+  if (!els.canvasHost) return;
+  els.canvasHost.dataset.tool = state.tool;
+  if (state.action && state.action.kind === "pan") {
+    els.canvasHost.style.cursor = "grabbing";
+    return;
+  }
+  els.canvasHost.style.cursor = "";
 }
 
 function onPointerMove(event) {
@@ -817,10 +836,11 @@ function render() {
   els.redoButton.disabled = state.future.length === 0;
   updateDocumentUI();
 
+  document.querySelector(".app-body")?.classList.toggle("inspector-collapsed", state.inspectorCollapsed);
+
   if (!state.capture) {
     els.emptyState.classList.remove("is-hidden");
     els.canvasStage.classList.add("is-hidden");
-    document.querySelector(".app-body")?.classList.add("inspector-collapsed");
     return;
   }
 
@@ -838,6 +858,7 @@ function render() {
   renderSelection();
   renderInspector();
   updateStatus();
+  updateCanvasCursor();
 }
 
 function renderVectorAnnotations() {
@@ -1021,15 +1042,13 @@ function renderInspector() {
     els.geometryFields.innerHTML = "";
     els.geometryFields.dataset.sig = "";
     disableInspector(true);
-    appBody?.classList.add("inspector-collapsed");
-    emptyHint?.classList.add("is-hidden");
+    emptyHint?.classList.remove("is-hidden");
     sectionSelected?.classList.add("is-hidden");
     sectionGeometry?.classList.add("is-hidden");
     sectionText?.classList.add("is-hidden");
     sectionBlur?.classList.add("is-hidden");
     els.sectionNumberedCircle?.classList.toggle("is-hidden", state.tool !== "numbered-circle");
     if (state.tool === "numbered-circle") {
-      appBody?.classList.remove("inspector-collapsed");
       emptyHint?.classList.add("is-hidden");
       syncNumberedInspector(null);
     }
@@ -1037,7 +1056,6 @@ function renderInspector() {
   }
 
   disableInspector(false);
-  appBody?.classList.remove("inspector-collapsed");
   emptyHint?.classList.add("is-hidden");
   sectionSelected?.classList.remove("is-hidden");
   sectionGeometry?.classList.toggle("is-hidden", ann.type === "numbered-circle");
