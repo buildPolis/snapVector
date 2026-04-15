@@ -13,6 +13,38 @@ go build -tags production -o ./build/bin/snapvector-production .
 - `snapvector` is the normal Go build that still supports all CLI workflows.
 - `snapvector-production` is the real Wails GUI build. On macOS this now links `UniformTypeIdentifiers` from code, so the production tag build no longer needs manual `CGO_LDFLAGS`.
 
+### Windows
+
+No system dependencies are required for building. Go and Wails CLI are sufficient.
+
+```bash
+# Dev mode (run from wails/ directory)
+wails dev
+
+# Production build
+wails build -platform windows/amd64
+
+# Production build + NSIS installer (.exe setup wizard)
+wails build -nsis -platform windows/amd64
+```
+
+Requires NSIS for the `-nsis` flag:
+
+```bash
+winget install NSIS.NSIS
+```
+
+**WebView2 strategy** — configure in `wails.json`:
+
+| Strategy | Description | Installer size impact |
+|---|---|---|
+| `DownloadBootstrapper` | Downloads WebView2 at install time | minimal |
+| `EmbedBootstrapper` | Bundles the downloader (recommended for Win10) | +~1.5 MB |
+| `OfflineInstaller` | Full offline WebView2 bundle | +~150 MB |
+| `Skip` | Assumes WebView2 already installed | none (risky on Win10) |
+
+Windows 11 ships WebView2 pre-installed. For Windows 10 use `EmbedBootstrapper`.
+
 ### Linux (Ubuntu 24.04+)
 
 Ubuntu 24.04 ships `webkit2gtk-4.1` instead of `4.0`. Wails requires the `webkit2_41` build tag.
@@ -72,9 +104,13 @@ CLI stdout always emits a single JSON document that follows the PRD top-level co
 
 - The macOS capture backend shells out to `/usr/sbin/screencapture`.
 - The Linux capture backend uses D-Bus `org.freedesktop.portal.Screenshot` with `gnome-screenshot`/`grim` fallback.
+- The Windows capture backend uses `kbinani/screenshot` (Win32 GDI, CGo-free). Interactive region selection runs an embedded PowerShell script that renders the screen as a full-screen overlay with a rubber-band selector.
+- Windows clipboard writes PNG/JPG via `System.Drawing.Image` and SVG/PDF via `Clipboard.SetData` with MIME-type format names; both paths run PowerShell with `-STA` (required for COM clipboard).
+- Windows SVG export uses `oksvg` + `rasterx` (pure Go). PDF export wraps the rasterised PNG in a `gopdf` page. `<feGaussianBlur>` is not supported — blur annotations are silently skipped.
 - JSON `code` values are the machine-readable API contract; shell exit codes remain `0` or `1`.
 - The Wails GUI production build on macOS links `UniformTypeIdentifiers` from code, so `go build -tags production` works without extra linker flags.
 - Linux global hotkeys use D-Bus `org.freedesktop.portal.GlobalShortcuts` (requires `xdg-desktop-portal` ≥ 1.17). Falls back gracefully if the portal is unavailable.
+- Windows global hotkeys are a no-op (same as macOS); only in-app keyboard shortcuts work.
 
 ## Current coverage
 
@@ -94,7 +130,7 @@ Still not shipped:
 
 - desktop-wide region-selection overlay before capture
 - fully verified native Wails end-to-end export interaction from the visible app window
-- Windows native capture backend
+- Windows export: blur annotations (oksvg does not support `<feGaussianBlur>`)
 
 ## GUI usage
 
@@ -125,7 +161,77 @@ Record measured latency instead of assuming PRD compliance.
 |---|---|---|
 | darwin | ✅ Phase 1 backend | Requires Screen Recording permission. |
 | linux | ✅ Phase 1 backend | D-Bus portal capture, `rsvg-convert` export, `xclip`/`wl-copy` clipboard, global hotkeys via portal. |
-| windows | 🚧 stub | Returns structured unsupported-platform error. |
+| windows | ✅ Phase 1 backend | GDI capture, PowerShell region overlay, `oksvg` export, PowerShell clipboard. Blur annotations not rendered in export (oksvg limitation). |
+
+## Distribution & packaging
+
+### Runtime dependencies by platform
+
+| Platform | Feature | Dependency | Pre-installed? |
+|---|---|---|---|
+| Windows | GUI | WebView2 Runtime | Win11 ✅ / Win10 ⚠️ |
+| Windows | Region capture | PowerShell + .NET Forms | ✅ all modern Windows |
+| macOS | Screenshot / clipboard | `swift` (Xcode CLT) | ⚠️ needs `xcode-select --install` |
+| macOS | Export | `sips`, `cupsfilter` | ✅ system built-in |
+| macOS | GUI | WebKit | ✅ system built-in |
+| Linux | GUI | WebKit2GTK (`libwebkit2gtk-4.1`) | ⚠️ needs apt install |
+| Linux | Screenshot | `gnome-screenshot` or `grim` | ⚠️ distro-dependent |
+| Linux | Export | `rsvg-convert` (`librsvg2-bin`) | ⚠️ needs apt install |
+| Linux | Clipboard | `xclip` or `wl-clipboard` | ⚠️ needs apt install |
+
+### Cross-compilation
+
+| Target | From Windows | From macOS | From Linux |
+|---|---|---|---|
+| `windows/amd64` | ✅ | ✅ (`GOOS=windows`) | ✅ (`GOOS=windows`) |
+| `darwin/amd64` | ❌ CGo required | ✅ | ❌ CGo required |
+| `linux/amd64` | ❌ CGo required | ❌ CGo required | ✅ |
+
+macOS and Linux builds require CGo (macOS: UniformTypeIdentifiers framework; Linux: X11/webkit). Each platform must be built on its own OS.
+
+### macOS code signing & notarization
+
+Unsigned macOS builds are blocked by Gatekeeper. Users see _"cannot be opened because the developer cannot be verified"_.
+
+**Requirements:** Apple Developer Program membership ($99 USD/year).
+
+```bash
+# 1. Sign the .app
+codesign --deep --force --options runtime \
+  --sign "Developer ID Application: Your Name (TEAMID)" \
+  snapvector.app
+
+# 2. Submit to Apple notary service
+xcrun notarytool submit snapvector.zip \
+  --apple-id "your@email.com" \
+  --team-id "TEAMID" \
+  --password "app-specific-password" \
+  --wait
+
+# 3. Staple the notarization ticket into the .app
+xcrun stapler staple snapvector.app
+```
+
+Apple typically responds within 5 minutes. Without notarization, users can still bypass Gatekeeper manually via **System Settings → Privacy & Security → Open Anyway**, or:
+
+```bash
+xattr -dr com.apple.quarantine snapvector.app
+```
+
+### Windows NSIS installer
+
+`wails build -nsis` generates a standard Windows setup wizard (`.exe`) that:
+- installs the binary to `C:\Program Files\snapvector\`
+- creates Start Menu and optional desktop shortcut
+- registers an uninstaller in Add/Remove Programs
+- handles WebView2 bootstrap automatically
+
+### Linux packaging
+
+No native installer support. Recommended options:
+- Ship a raw binary with a README listing `apt install librsvg2-bin xclip`
+- Package as `.deb` / `.rpm` with `Depends:` listing runtime libraries
+- Distribute via Flatpak (bundles all runtime deps)
 
 ## Hotkeys
 
