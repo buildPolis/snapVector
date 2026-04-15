@@ -137,10 +137,7 @@ function bindUI() {
   els.toolButtons.forEach((button) => {
     button.addEventListener("click", async () => {
       const tool = button.dataset.tool;
-      if (tool === "capture") {
-        await captureScreen();
-        return;
-      }
+      if (!tool) return;
       setTool(tool);
     });
   });
