@@ -29,6 +29,7 @@ var ActionCatalog = []string{
 	"view.zoomIn", "view.zoomOut", "view.zoomReset",
 	"export.copy",
 	"capture.fullscreen", "capture.region", "capture.allDisplays",
+	"tab.new", "tab.close", "tab.next", "tab.prev",
 	"app.preferences",
 }
 
@@ -54,6 +55,10 @@ func DefaultHotkeys() []Hotkey {
 		"capture.fullscreen":   "mod+shift+q",
 		"capture.region":       "mod+shift+w",
 		"capture.allDisplays":  "mod+shift+e",
+		"tab.new":              "mod+t",
+		"tab.close":            "mod+w",
+		"tab.next":             "mod+alt+right",
+		"tab.prev":             "mod+alt+left",
 		"app.preferences":      "mod+,",
 	}
 	out := make([]Hotkey, 0, len(ActionCatalog))

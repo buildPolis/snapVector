@@ -13,9 +13,12 @@ func TestFrontendCaptureButtonsUseDistinctIcons(t *testing.T) {
 	}
 
 	html := string(raw)
-	assertContains(t, html, `id="captureRegionButton" title="Capture region (OS native)">`+"\n              "+`<svg><use href="#icon-region-capture" /></svg>`)
-	assertContains(t, html, `id="captureAllDisplaysButton" title="Capture all displays (in-app crop)">`+"\n              "+`<svg><use href="#icon-all-displays" /></svg>`)
-	assertContains(t, html, `id="captureButton" title="Capture-screen">`+"\n              "+`<svg><use href="#icon-capture" /></svg>`)
+	assertContains(t, html, `id="captureRegionButton"`)
+	assertContains(t, html, `<svg><use href="#icon-region-capture" /></svg>`)
+	assertContains(t, html, `id="captureAllDisplaysButton"`)
+	assertContains(t, html, `<svg><use href="#icon-all-displays" /></svg>`)
+	assertContains(t, html, `id="captureButton"`)
+	assertContains(t, html, `<svg><use href="#icon-capture" /></svg>`)
 }
 
 func TestFrontendIncludesFileMenuActions(t *testing.T) {

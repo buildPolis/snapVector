@@ -14,33 +14,75 @@ const BASELINE_ARROW_POINTS = [
   [132, 72],
 ];
 
+// Fields that belong to the current active tab. When switching tabs, these
+// are commit-swapped between the global `state` and the tab's own object.
+// Add new per-tab fields here or they will leak across tabs.
+const TAB_SCOPED_KEYS = [
+  "capture", "annotations", "selectedId", "tool",
+  "history", "future", "action",
+  "zoom", "zoomAutoFit", "pan",
+  "numberedCircle", "document",
+];
+
+function makeTabData() {
+  return {
+    capture: null,
+    annotations: [],
+    selectedId: null,
+    tool: "select",
+    history: [],
+    future: [],
+    action: null,
+    zoom: DEFAULT_ZOOM,
+    zoomAutoFit: true,
+    pan: { x: 0, y: 0 },
+    numberedCircle: {
+      nextNumber: 1,
+      radius: 28,
+      strokeColor: "#E53935",
+      outlineColor: "#FFFFFF",
+      textColor: "#FFFFFF",
+      strokeWidth: 6,
+    },
+    document: {
+      path: "",
+      name: "Untitled",
+      dirty: false,
+      savedFingerprint: "",
+      menuOpen: false,
+    },
+  };
+}
+
+let tabSerial = 0;
+const tabs = []; // [{ id, title, ...TAB_SCOPED_KEYS }]
+let activeTabId = null;
+
+function makeTab(title = "Untitled") {
+  return { id: `tab-${++tabSerial}`, title, ...makeTabData() };
+}
+
+function tabById(id) { return tabs.find((t) => t.id === id); }
+function activeTab() { return tabById(activeTabId); }
+
+function commitActiveTab() {
+  const t = activeTab();
+  if (!t) return;
+  for (const k of TAB_SCOPED_KEYS) t[k] = state[k];
+}
+
+function loadTab(id) {
+  const t = tabById(id);
+  if (!t) return;
+  for (const k of TAB_SCOPED_KEYS) state[k] = t[k];
+  activeTabId = id;
+}
+
 const state = {
-  capture: null,
-  annotations: [],
-  selectedId: null,
-  tool: "select",
-  history: [],
-  future: [],
-  action: null,
+  ...makeTabData(),
+  // UI-level flags that are NOT per-tab:
   pointer: { x: 0, y: 0 },
-  zoom: DEFAULT_ZOOM,
-  pan: { x: 0, y: 0 },
   inspectorCollapsed: false,
-  document: {
-    path: "",
-    name: "Untitled",
-    dirty: false,
-    savedFingerprint: "",
-    menuOpen: false,
-  },
-  numberedCircle: {
-    nextNumber: 1,
-    radius: 28,
-    strokeColor: "#E53935",
-    outlineColor: "#FFFFFF",
-    textColor: "#FFFFFF",
-    strokeWidth: 6,
-  },
 };
 
 const IS_MAC = /mac|iphone|ipad|ipod/i.test(navigator.platform);
@@ -78,6 +120,7 @@ const els = {
   exportButton: document.getElementById("exportButton"),
   exportFormat: document.getElementById("exportFormat"),
   toggleInspectorButton: document.getElementById("toggleInspectorButton"),
+  tabStrip: document.getElementById("tabStrip"),
   canvasHost: document.getElementById("canvasHost"),
   canvasStage: document.getElementById("canvasStage"),
   captureImage: document.getElementById("captureImage"),
@@ -125,7 +168,11 @@ const els = {
 const backend = createBackend();
 
 async function init() {
+  const firstTab = makeTab("Untitled");
+  tabs.push(firstTab);
+  loadTab(firstTab.id);
   bindUI();
+  renderTabStrip();
   await loadHotkeys();
   window.addEventListener("keydown", onRecorderKeydown, true); // capture phase
   window.addEventListener("keydown", onGlobalKeydown);
@@ -210,6 +257,14 @@ function bindUI() {
 
   els.preferencesModal.addEventListener("click", (event) => {
     if (event.target === els.preferencesModal) closePreferences();
+  });
+
+  els.tabStrip?.addEventListener("click", (event) => {
+    const closeId = event.target?.dataset?.closeTabId;
+    if (closeId) { event.stopPropagation(); closeTab(closeId); return; }
+    if (event.target?.dataset?.action === "new-tab") { newBlankTab(); return; }
+    const btn = event.target.closest?.("[data-tab-id]");
+    if (btn) activateTab(btn.dataset.tabId);
   });
 
   bindInspector();
@@ -299,6 +354,7 @@ function bindInspector() {
 const CAPTURE_MODES = {
   fullscreen: {
     title: "captured-screen.png",
+    tabLabel: "Full screen",
     loadingToast: "正在擷取滑鼠所在螢幕...",
     doneToast: () => "已載入滑鼠所在螢幕",
     tool: "select",
@@ -306,6 +362,7 @@ const CAPTURE_MODES = {
   },
   region: {
     title: "captured-region.png",
+    tabLabel: "Region",
     loadingToast: "請在桌面拖曳選取擷取範圍...",
     doneToast: (c) => `已載入所選區域 ${c.width} × ${c.height}`,
     tool: "select",
@@ -313,12 +370,104 @@ const CAPTURE_MODES = {
   },
   "all-displays": {
     title: "captured-all-displays.png",
+    tabLabel: "All displays",
     loadingToast: "正在載入所有螢幕，接著可拖曳裁切...",
     doneToast: (c) => `已載入所有螢幕 ${c.width} × ${c.height}，拖曳框選要保留的區域`,
     tool: "crop",
     call: () => backend.captureAllDisplays(),
   },
 };
+
+function formatTabTimestamp() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderTabStrip() {
+  const host = els.tabStrip;
+  if (!host) return;
+  host.innerHTML = "";
+  for (const t of tabs) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab-item" + (t.id === activeTabId ? " is-active" : "") + (t.document?.dirty ? " is-dirty" : "");
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", t.id === activeTabId ? "true" : "false");
+    btn.dataset.tabId = t.id;
+    const label = document.createElement("span");
+    label.className = "tab-label";
+    label.textContent = t.title || "Untitled";
+    btn.appendChild(label);
+    const close = document.createElement("span");
+    close.className = "tab-close";
+    close.textContent = "×";
+    close.dataset.closeTabId = t.id;
+    close.setAttribute("aria-label", "Close tab");
+    btn.appendChild(close);
+    host.appendChild(btn);
+  }
+  const plus = document.createElement("button");
+  plus.type = "button";
+  plus.className = "tab-new";
+  plus.textContent = "+";
+  plus.dataset.action = "new-tab";
+  plus.setAttribute("data-hotkey-action", "tab.new");
+  plus.setAttribute("data-title-base", "New tab");
+  plus.title = "New tab";
+  host.appendChild(plus);
+  if (typeof updateHotkeyAnnotatedTitles === "function") updateHotkeyAnnotatedTitles();
+}
+
+function activateTab(id) {
+  if (!id || id === activeTabId) return;
+  if (!tabById(id)) return;
+  commitActiveTab();
+  loadTab(id);
+  syncToolButtons();
+  renderTabStrip();
+  render();
+}
+
+function activateNeighborTab(dir) {
+  if (!tabs.length) return;
+  const idx = tabs.findIndex((t) => t.id === activeTabId);
+  if (idx < 0) return;
+  const next = tabs[(idx + dir + tabs.length) % tabs.length];
+  activateTab(next.id);
+}
+
+function newBlankTab() {
+  commitActiveTab();
+  const t = makeTab("Untitled");
+  tabs.push(t);
+  loadTab(t.id);
+  syncToolButtons();
+  renderTabStrip();
+  render();
+}
+
+function closeTab(id) {
+  const t = tabById(id);
+  if (!t) return;
+  const isActive = id === activeTabId;
+  const dirty = isActive ? state.document.dirty : t.document?.dirty;
+  if (dirty && !confirm("此分頁有未儲存的變更，仍要關閉？")) return;
+  if (isActive) commitActiveTab();
+  const idx = tabs.indexOf(t);
+  tabs.splice(idx, 1);
+  if (tabs.length === 0) {
+    const blank = makeTab("Untitled");
+    tabs.push(blank);
+    loadTab(blank.id);
+  } else if (isActive) {
+    const next = tabs[Math.min(idx, tabs.length - 1)];
+    loadTab(next.id);
+  }
+  syncToolButtons();
+  renderTabStrip();
+  render();
+}
 
 init().catch((error) => {
   console.error(error);
@@ -330,6 +479,13 @@ async function captureScreen(mode = "fullscreen") {
   closeFileMenu();
   showToast(plan.loadingToast);
   const capture = await plan.call();
+  // First capture fills the current blank tab; subsequent captures open new tabs.
+  if (state.capture != null) {
+    commitActiveTab();
+    const t = makeTab(plan.tabLabel || "Capture");
+    tabs.push(t);
+    loadTab(t.id);
+  }
   state.capture = {
     base64: capture.base64,
     width: capture.captureRegion?.width ?? capture.display?.width ?? 1200,
@@ -350,6 +506,9 @@ async function captureScreen(mode = "fullscreen") {
   state.tool = plan.tool;
   syncDirtyState();
   syncToolButtons();
+  const tab = activeTab();
+  if (tab) tab.title = `${plan.tabLabel || "Capture"} ${formatTabTimestamp()}`;
+  renderTabStrip();
   els.captureTitle.textContent = `${plan.title} · ${state.capture.width} × ${state.capture.height}`;
   showToast(plan.doneToast(state.capture));
   render();
@@ -742,7 +901,12 @@ function documentFingerprint() {
 
 function syncDirtyState() {
   const fingerprint = documentFingerprint();
+  const prev = state.document.dirty;
   state.document.dirty = fingerprint !== "" && fingerprint !== state.document.savedFingerprint;
+  if (prev !== state.document.dirty && els.tabStrip) {
+    const btn = els.tabStrip.querySelector(`[data-tab-id="${activeTabId}"]`);
+    if (btn) btn.classList.toggle("is-dirty", state.document.dirty);
+  }
 }
 
 function defaultDocumentName() {
@@ -761,6 +925,11 @@ async function openDocument() {
     if (parsed.kind !== "snapvector-document" || parsed.version !== 1 || !parsed.capture || !Array.isArray(parsed.annotations)) {
       throw new Error("不支援的文件格式");
     }
+
+    commitActiveTab();
+    const t = makeTab(result.name || "Untitled");
+    tabs.push(t);
+    loadTab(t.id);
 
     state.capture = {
       base64: parsed.capture.base64,
@@ -782,6 +951,9 @@ async function openDocument() {
     state.document.name = result.name || "Untitled";
     state.document.savedFingerprint = documentFingerprint();
     state.document.dirty = false;
+    const tab = activeTab();
+    if (tab) tab.title = state.document.name;
+    renderTabStrip();
     render();
     showToast(`已開啟 ${state.document.name}`);
   } catch (error) {
@@ -806,6 +978,9 @@ async function saveDocument() {
     state.document.name = result.name || "Untitled";
     state.document.savedFingerprint = documentFingerprint();
     state.document.dirty = false;
+    const tab = activeTab();
+    if (tab) tab.title = state.document.name;
+    renderTabStrip();
     render();
     showToast(`已儲存 ${state.document.name}`);
   } catch (error) {
@@ -824,6 +999,9 @@ async function saveDocumentAs() {
     state.document.name = result.name || "Untitled";
     state.document.savedFingerprint = documentFingerprint();
     state.document.dirty = false;
+    const tab = activeTab();
+    if (tab) tab.title = state.document.name;
+    renderTabStrip();
     render();
     showToast(`已另存為 ${state.document.name}`);
   } catch (error) {
@@ -1599,6 +1777,10 @@ function hotkeyActions() {
     "capture.fullscreen":   () => captureScreen("fullscreen"),
     "capture.region":       () => captureScreen("region"),
     "capture.allDisplays":  () => captureScreen("all-displays"),
+    "tab.new":              () => newBlankTab(),
+    "tab.close":            () => closeTab(activeTabId),
+    "tab.next":             () => activateNeighborTab(+1),
+    "tab.prev":             () => activateNeighborTab(-1),
     "app.preferences":      () => openPreferences(),
   };
 }
@@ -1661,6 +1843,10 @@ function defaultHotkeyBindings() {
     { action: "capture.fullscreen", combo: "mod+shift+q", scope: "app" },
     { action: "capture.region", combo: "mod+shift+w", scope: "app" },
     { action: "capture.allDisplays", combo: "mod+shift+e", scope: "app" },
+    { action: "tab.new", combo: "mod+t", scope: "app" },
+    { action: "tab.close", combo: "mod+w", scope: "app" },
+    { action: "tab.next", combo: "mod+alt+right", scope: "app" },
+    { action: "tab.prev", combo: "mod+alt+left", scope: "app" },
     { action: "app.preferences", combo: "mod+,", scope: "app" },
   ];
 }
@@ -1709,6 +1895,10 @@ const ACTION_LABELS = {
   "capture.fullscreen": "Capture full screen",
   "capture.region": "Capture region",
   "capture.allDisplays": "Capture all displays",
+  "tab.new": "New tab",
+  "tab.close": "Close tab",
+  "tab.next": "Next tab",
+  "tab.prev": "Previous tab",
   "app.preferences": "Open Preferences",
 };
 
@@ -1719,6 +1909,7 @@ const ACTION_GROUPS = [
   { title: "View", actions: ["view.zoomIn", "view.zoomOut", "view.zoomReset"] },
   { title: "Export", actions: ["export.copy"] },
   { title: "Capture", actions: ["capture.fullscreen", "capture.region", "capture.allDisplays"] },
+  { title: "Tabs", actions: ["tab.new", "tab.close", "tab.next", "tab.prev"] },
   { title: "App", actions: ["app.preferences"] },
 ];
 
