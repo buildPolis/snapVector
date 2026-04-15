@@ -145,7 +145,7 @@ func TestComposeBlurKeepsSemanticStructure(t *testing.T) {
 
 	assertContains(t, svg, `<clipPath id="ann-symbol-0-blur-1-clip">`)
 	assertContains(t, svg, `<filter id="ann-symbol-0-blur-1-filter"`)
-	assertContains(t, svg, `<feGaussianBlur stdDeviation="4"/>`)
+	assertContains(t, svg, `<feGaussianBlur stdDeviation="12"/>`)
 	assertContains(t, svg, `clip-path="url(#ann-symbol-0-blur-1-clip)"`)
 	assertContains(t, svg, `filter="url(#ann-symbol-0-blur-1-filter)"`)
 	assertContains(t, svg, `fill="#FFFFFF" opacity="0.14"`)
