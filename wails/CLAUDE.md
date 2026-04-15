@@ -63,6 +63,13 @@ wails/
 
 ## 禁忌
 
-- 不要引入 cgo 依賴除非**非用不可**（每增加一項 cgo 依賴都會傷害跨平台打包與冷啟動）。
 - 不要在 Go 端引入 HTML template 渲染——SVG 合成走字串拼接或 `encoding/xml`。
 - 不要複製根 `../PRD.md` 大段內容到本檔案。
+
+## cgo 政策
+
+- 平台整合（GTK/WebKit/Cocoa/Win32）需要拿到底層 handle 時，允許寫 `//go:build` tag 分檔 + cgo。
+- 新增 cgo 時必須：
+  - 該檔用 build tag 限定平台，避免污染其他平台的打包。
+  - 在 commit message 或檔案開頭註解說明「用 cgo 的原因」。
+  - 把 cgo 表面積壓到最小：一個薄 C 封裝回傳 handle/XID，其餘邏輯留在純 Go。
