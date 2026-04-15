@@ -19,20 +19,20 @@ import (
 )
 
 type App struct {
-	ctx                    context.Context
-	newCapturer            func() capture.Capturer
-	convertExporter        func(context.Context, string, string) ([]byte, string, error)
-	writeClipboard         func(context.Context, []byte, string) error
-	openFileDialog         func(context.Context, wailsruntime.OpenDialogOptions) (string, error)
-	saveFileDialog         func(context.Context, wailsruntime.SaveDialogOptions) (string, error)
-	readFile               func(string) ([]byte, error)
-	writeFile              func(string, []byte, os.FileMode) error
-	hideWindow             func(context.Context)
-	showWindow             func(context.Context)
-	preCaptureDelay        time.Duration
-	postCaptureHold        time.Duration
-	hotkeyStore            *HotkeyStore
-	globalHotkeyListener   globalHotkeyListenerHandle
+	ctx                  context.Context
+	newCapturer          func() capture.Capturer
+	convertExporter      func(context.Context, string, string) ([]byte, string, error)
+	writeClipboard       func(context.Context, []byte, string) error
+	openFileDialog       func(context.Context, wailsruntime.OpenDialogOptions) (string, error)
+	saveFileDialog       func(context.Context, wailsruntime.SaveDialogOptions) (string, error)
+	readFile             func(string) ([]byte, error)
+	writeFile            func(string, []byte, os.FileMode) error
+	hideWindow           func(context.Context)
+	showWindow           func(context.Context)
+	preCaptureDelay      time.Duration
+	postCaptureHold      time.Duration
+	hotkeyStore          *HotkeyStore
+	globalHotkeyListener globalHotkeyListenerHandle
 }
 
 type CaptureResult struct {

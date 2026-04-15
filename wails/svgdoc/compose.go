@@ -357,9 +357,9 @@ func renderBlur(idx int, ann annotation.Annotation, baseDataURL string, canvasWi
 	clipID := symbolID(idx, ann.ID) + "-clip"
 	filterID := symbolID(idx, ann.ID) + "-filter"
 	symbolID := symbolID(idx, ann.ID)
-	sigma := ann.BlurRadius / 3
-	if sigma < 0.1 {
-		sigma = 0.1
+	stdDeviation := ann.BlurRadius
+	if stdDeviation < 0.1 {
+		stdDeviation = 0.1
 	}
 	insetX := ann.Width * (baselineRectInsetX / baselineRectViewWidth)
 	insetY := ann.Height * (baselineRectInsetY / baselineRectViewHeight)
@@ -389,7 +389,7 @@ func renderBlur(idx int, ann annotation.Annotation, baseDataURL string, canvasWi
 		formatFloat(contentHeight),
 		formatFloat(cornerRadius),
 		filterID,
-		formatFloat(sigma),
+		formatFloat(stdDeviation),
 		formatFloat(-ann.X/sx),
 		formatFloat(-ann.Y/sy),
 		formatFloat(float64(canvasWidth)/sx),

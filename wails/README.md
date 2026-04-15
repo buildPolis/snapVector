@@ -77,6 +77,10 @@ source ~/.nvm/nvm.sh && nvm use 24  # if using nvm
 wails dev                            # webkit2_41 tag is auto-applied
 ```
 
+On first GUI launch, SnapVector also installs a user-level desktop entry and icon
+under `~/.local/share/applications/` and `~/.local/share/icons/` so GNOME/KDE
+can associate the running window with the correct app icon more reliably.
+
 **Production build:**
 
 ```bash
@@ -232,6 +236,25 @@ No native installer support. Recommended options:
 - Ship a raw binary with a README listing `apt install librsvg2-bin xclip`
 - Package as `.deb` / `.rpm` with `Depends:` listing runtime libraries
 - Distribute via Flatpak (bundles all runtime deps)
+
+#### Build a `.deb`
+
+```bash
+source ~/.nvm/nvm.sh && nvm use 24
+./scripts/package-deb.sh
+```
+
+The package is written to `build/packages/` and installs:
+- `/usr/bin/snapvector`
+- `/usr/share/applications/snapvector.desktop`
+- `/usr/share/icons/hicolor/512x512/apps/snapvector.png`
+
+Useful overrides:
+
+```bash
+VERSION=0.1.0 MAINTAINER="Your Name <you@example.com>" ./scripts/package-deb.sh
+DEPENDS="libgtk-3-0t64, libwebkit2gtk-4.1-0, librsvg2-bin, xclip" ./scripts/package-deb.sh
+```
 
 ## Hotkeys
 
