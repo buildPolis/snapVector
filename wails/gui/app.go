@@ -84,6 +84,7 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	wailsruntime.WindowCenter(ctx)
 	a.startGlobalHotkeys()
 }
 
