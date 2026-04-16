@@ -1,13 +1,9 @@
-//go:build !linux
+//go:build !linux && !darwin && !windows
 
 package gui
 
-// startGlobalHotkeys is a no-op on non-Linux platforms.
-// macOS and Windows do not use the D-Bus GlobalShortcuts portal.
-func (a *App) startGlobalHotkeys() {}
+func (a *App) startGlobalHotkeys()     {}
+func (a *App) stopGlobalHotkeys()      {}
+func (a *App) reapplyGlobalHotkeys()   {}
 
-// stopGlobalHotkeys is a no-op on non-Linux platforms.
-func (a *App) stopGlobalHotkeys() {}
-
-// globalHotkeyListenerHandle is nil on non-Linux platforms.
 type globalHotkeyListenerHandle = *struct{}

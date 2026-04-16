@@ -369,7 +369,11 @@ func (a *App) GetHotkeys() ([]Hotkey, error) {
 }
 
 func (a *App) SaveHotkeys(bindings []Hotkey) error {
-	return a.hotkeyStore.Save(bindings)
+	if err := a.hotkeyStore.Save(bindings); err != nil {
+		return err
+	}
+	a.reapplyGlobalHotkeys()
+	return nil
 }
 
 func (a *App) ResetHotkeys() ([]Hotkey, error) {

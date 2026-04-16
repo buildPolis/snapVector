@@ -130,7 +130,7 @@ CLI stdout always emits a single JSON document that follows the PRD top-level co
 - JSON `code` values are the machine-readable API contract; shell exit codes remain `0` or `1`.
 - The Wails GUI production build on macOS links `UniformTypeIdentifiers` from code, so `go build -tags production` works without extra linker flags.
 - Linux global hotkeys use D-Bus `org.freedesktop.portal.GlobalShortcuts` (requires `xdg-desktop-portal` ≥ 1.17). Falls back gracefully if the portal is unavailable.
-- Windows global hotkeys are a no-op (same as macOS); only in-app keyboard shortcuts work.
+- macOS global hotkeys use Carbon `RegisterEventHotKey` (no TCC permission required). Windows uses Win32 `RegisterHotKey` (pure Go, no cgo). Both swallow the key at the OS level so the WebView doesn't double-fire.
 
 ## Current coverage
 
