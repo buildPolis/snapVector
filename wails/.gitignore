@@ -10,6 +10,9 @@
 !/build/bin/snapvector.app/**
 # Ignore macOS filesystem cruft that sneaks into the bundle
 /build/bin/snapvector.app/**/.DS_Store
+# Windows binaries produced by `wails build [-nsis]` (shipped via Git LFS)
+!/build/bin/snapvector.exe
+!/build/bin/*-installer.exe
 # Debian packages produced by scripts/package-deb.sh (shipped via Git LFS)
 !/build/packages/
 /build/packages/*

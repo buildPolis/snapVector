@@ -14,3 +14,4 @@ wails/build/packages/**/*.deb filter=lfs diff=lfs merge=lfs -text
 wails/build/packages/**/*.AppImage filter=lfs diff=lfs merge=lfs -text
 wails/build/bin/**/*.dmg filter=lfs diff=lfs merge=lfs -text
 wails/build/bin/**/*.msi filter=lfs diff=lfs merge=lfs -text
+wails/build/bin/**/*-installer.exe filter=lfs diff=lfs merge=lfs -text
