@@ -92,7 +92,37 @@ jobs:
 
       - name: Install NSIS
         shell: pwsh
-        run: choco install nsis -y --no-progress
+        run: |
+          choco install nsis -y --no-progress
+
+          $nsisCommand = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if ($nsisCommand) {
+            Split-Path $nsisCommand.Source -Parent | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            exit 0
+          }
+
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\NSIS",
+            "${env:ProgramFiles}\NSIS",
+            "C:\Program Files (x86)\NSIS",
+            "C:\Program Files\NSIS"
+          )
+
+          foreach ($dir in $candidates) {
+            if (Test-Path (Join-Path $dir "makensis.exe")) {
+              $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              exit 0
+            }
+          }
+
+          throw "makensis.exe not found after installing NSIS"
+
+      - name: Verify NSIS is available
+        shell: pwsh
+        run: |
+          $nsisCommand = Get-Command makensis.exe -ErrorAction Stop
+          Write-Host "Using NSIS from $($nsisCommand.Source)"
+          & $nsisCommand.Source /VERSION
 
       - name: Build unsigned app and NSIS installer
         run: |
