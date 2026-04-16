@@ -57,6 +57,12 @@ PRD 目標平台：
 - Xcode Command Line Tools
 - Screen Recording permission for real capture
 
+若本地測試時需要重置 macOS 的 Screen Recording 授權狀態，可執行：
+
+```bash
+tccutil reset ScreenCapture com.wails.snapvector
+```
+
 ### Linux
 
 - Go 1.22+

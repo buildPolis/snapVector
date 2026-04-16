@@ -18,6 +18,12 @@ Currently shipped:
 
 On first launch the app must be granted **Screen Recording** permission. macOS shows the dialog automatically on the first capture attempt; grant it then **fully quit and relaunch** (TCC doesn't apply mid-process).
 
+If you need to reset the local Screen Recording permission during testing:
+
+```bash
+tccutil reset ScreenCapture com.wails.snapvector
+```
+
 ## Build
 
 ```bash
