@@ -173,13 +173,13 @@ gh workflow run release.yml -f tag_name=v0.1.0
 
 手動觸發時，workflow 會用你提供的 `tag_name` 建立或更新 GitHub Release。
 
-目前 release workflow 的目標產物：
+目前 release workflow 會先整理 staging artifacts，再發佈這些檔名：
 
 | Platform | Raw artifact | Package / installer |
 |---|---|---|
-| macOS | `.app` | `.zip` |
-| Windows | `.exe` | NSIS installer `.exe` |
-| Linux | raw binary | `.deb` |
+| macOS | — | `snapvector-vX.Y.Z-macos-universal.zip` |
+| Windows | `snapvector-vX.Y.Z-windows-amd64.exe` | `snapvector-vX.Y.Z-windows-amd64-installer.exe` |
+| Linux | `snapvector-vX.Y.Z-linux-amd64` | `snapvector-vX.Y.Z-linux-amd64.deb` |
 
 第一版 **不做 signing / notarization**；macOS 簽章需求請看 `wails/docs/macos-code-signing.md`。
 

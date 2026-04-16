@@ -249,13 +249,13 @@ gh workflow run release.yml -f tag_name=v0.1.0
 
 The workflow uses the provided `tag_name` to create or update the GitHub Release.
 
-Current release outputs:
+Current release outputs are staged and renamed before publishing:
 
 | Platform | Raw artifact | Package / installer |
 |---|---|---|
-| macOS | `.app` | `.zip` |
-| Windows | `.exe` | NSIS installer `.exe` |
-| Linux | raw binary | `.deb` |
+| macOS | — | `snapvector-vX.Y.Z-macos-universal.zip` |
+| Windows | `snapvector-vX.Y.Z-windows-amd64.exe` | `snapvector-vX.Y.Z-windows-amd64-installer.exe` |
+| Linux | `snapvector-vX.Y.Z-linux-amd64` | `snapvector-vX.Y.Z-linux-amd64.deb` |
 
 The first workflow version intentionally skips code signing and notarization. For macOS signing, see `docs/macos-code-signing.md`.
 

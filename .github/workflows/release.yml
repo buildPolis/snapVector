@@ -18,6 +18,8 @@ jobs:
   build-macos:
     name: Build macOS artifacts
     runs-on: macos-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
     defaults:
       run:
         shell: bash
@@ -49,8 +51,8 @@ jobs:
             echo "expected a .app bundle under wails/build/bin" >&2
             exit 1
           fi
-
-          zip_path="${app_path%.app}.zip"
+          mkdir -p ./release-artifacts/macos
+          zip_path="./release-artifacts/macos/snapvector-${RELEASE_TAG}-macos-universal.zip"
           ditto -c -k --sequesterRsrc --keepParent "$app_path" "$zip_path"
 
       - name: Upload macOS artifacts
@@ -59,13 +61,13 @@ jobs:
           name: release-macos
           if-no-files-found: error
           retention-days: 7
-          path: |
-            wails/build/bin/*.app
-            wails/build/bin/*.zip
+          path: wails/release-artifacts/macos/*
 
   build-windows:
     name: Build Windows artifacts
     runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
     defaults:
       run:
         shell: bash
@@ -97,12 +99,16 @@ jobs:
           cd wails
           wails build -clean -nsis -platform windows/amd64
           mkdir -p ./release-artifacts/windows
-          find ./build -type f -iname '*.exe' -exec cp '{}' ./release-artifacts/windows/ ';'
+          app_exe="$(find ./build/bin -maxdepth 1 -type f -name 'snapvector.exe' -print -quit)"
+          installer_exe="$(find ./build/bin -maxdepth 1 -type f -name '*-installer.exe' -print -quit)"
 
-          if ! compgen -G "./release-artifacts/windows/*.exe" > /dev/null; then
-            echo "expected Windows .exe outputs under wails/build" >&2
+          if [[ -z "$app_exe" || -z "$installer_exe" ]]; then
+            echo "expected app exe and installer exe under wails/build/bin" >&2
             exit 1
           fi
+
+          cp "$app_exe" "./release-artifacts/windows/snapvector-${RELEASE_TAG}-windows-amd64.exe"
+          cp "$installer_exe" "./release-artifacts/windows/snapvector-${RELEASE_TAG}-windows-amd64-installer.exe"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -115,6 +121,8 @@ jobs:
   build-linux:
     name: Build Linux artifacts
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
     defaults:
       run:
         shell: bash
@@ -152,8 +160,15 @@ jobs:
         run: |
           cd wails
           chmod +x ./scripts/package-deb.sh
-          ./scripts/package-deb.sh
-          cp ./build/bin/snapvector ./build/bin/snapvector-linux-amd64
+          VERSION="${RELEASE_TAG#v}" ./scripts/package-deb.sh
+          mkdir -p ./release-artifacts/linux
+          deb_path="$(find ./build/packages -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          if [[ -z "$deb_path" || ! -f ./build/bin/snapvector ]]; then
+            echo "expected Linux binary and .deb package outputs" >&2
+            exit 1
+          fi
+          cp ./build/bin/snapvector "./release-artifacts/linux/snapvector-${RELEASE_TAG}-linux-amd64"
+          cp "$deb_path" "./release-artifacts/linux/snapvector-${RELEASE_TAG}-linux-amd64.deb"
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -161,9 +176,7 @@ jobs:
           name: release-linux
           if-no-files-found: error
           retention-days: 7
-          path: |
-            wails/build/bin/snapvector-linux-amd64
-            wails/build/packages/*.deb
+          path: wails/release-artifacts/linux/*
 
   publish:
     name: Publish GitHub Release
