@@ -66,6 +66,8 @@ Windows 11 ships WebView2 pre-installed. For Windows 10 use `EmbedBootstrapper`.
 Ubuntu 24.04 ships `webkit2gtk-4.1` instead of `4.0`. Wails requires the `webkit2_41` build tag.
 This is already set in `wails.json` via `"build:tags"`, so `wails dev` / `wails build` pick it up automatically.
 
+The currently verified Linux path is **Ubuntu 24.04 on X11**.
+
 **System dependencies:**
 
 ```bash
@@ -78,9 +80,9 @@ sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
 | `libgtk-3-dev` | GTK3 headers for Wails GUI (build only) |
 | `libwebkit2gtk-4.1-dev` | WebKit headers for Wails GUI (build only) |
 | `librsvg2-bin` | `rsvg-convert` for SVG→PNG/JPG/PDF export |
-| `xclip` | Clipboard write (X11); use `wl-clipboard` on Wayland |
+| `xclip` | Clipboard write for the currently verified X11 path |
 
-> **Note:** `-dev` packages are only needed on the **build machine**. End users running the pre-built binary only need the runtime libraries (`libgtk-3-0t64`, `libwebkit2gtk-4.1-0` — pre-installed on Ubuntu Desktop) plus `librsvg2-bin` and `xclip`:
+> **Note:** `-dev` packages are only needed on the **build machine**. End users running the pre-built binary on the currently verified Ubuntu 24.04 + X11 path only need the runtime libraries (`libgtk-3-0t64`, `libwebkit2gtk-4.1-0` — pre-installed on Ubuntu Desktop) plus `librsvg2-bin` and `xclip`:
 >
 > ```bash
 > sudo apt-get install -y librsvg2-bin xclip

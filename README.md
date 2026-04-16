@@ -60,10 +60,11 @@ PRD 目標平台：
 ### Linux
 
 - Go 1.22+
+- 目前僅驗證 **Ubuntu 24.04 + X11**
 - `libgtk-3-dev`
 - `libwebkit2gtk-4.1-dev`
 - `librsvg2-bin`
-- `xclip`（或 Wayland 使用 `wl-clipboard`）
+- `xclip`
 
 ### Windows
 
