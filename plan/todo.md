@@ -155,10 +155,10 @@ This file is the execution-oriented checklist across all phases. Items are marke
 
 ### Packaging and distribution
 
-- [ ] Add packaging workflow for macOS
-- [ ] Add packaging workflow for Windows
-- [ ] Add packaging workflow for Linux
-- [ ] Document install/run flow for each platform
+- [ ] Add packaging workflow for macOS *(workflow file landed locally; GitHub runner verification pending)*
+- [ ] Add packaging workflow for Windows *(workflow file landed locally; GitHub runner verification pending)*
+- [ ] Add packaging workflow for Linux *(workflow file landed locally; GitHub runner verification pending)*
+- [ ] Document install/run flow for each platform *(release workflow/docs landed locally; end-to-end release verification pending)*
 
 ### Performance and comparison
 

@@ -175,6 +175,80 @@ Current verification:
 
 Record measured latency instead of assuming PRD compliance.
 
+## GitHub Actions workflows
+
+The repository now includes GitHub Actions automation for the Wails track:
+
+- `../.github/workflows/ci.yml` runs Linux tests/builds on PRs and pushes, plus macOS/Windows Wails smoke builds.
+- `../.github/workflows/release.yml` builds unsigned release artifacts on `v*` tags or manual dispatch and publishes them to GitHub Releases.
+
+### Trigger CI on push / pull request
+
+Pushing a branch to GitHub automatically runs `ci.yml`:
+
+```bash
+git checkout -b feature/github-actions-release
+git add .
+git commit -m "Add GitHub Actions CI/CD"
+git push -u origin HEAD
+```
+
+For later updates on the same branch:
+
+```bash
+git add .
+git commit -m "Update workflow docs"
+git push
+```
+
+Opening a pull request for that branch triggers the `pull_request` path as well.
+
+### Trigger a release from a tag
+
+Pushing a `v*` tag runs `release.yml`:
+
+```bash
+git checkout main
+git pull --ff-only
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
+```
+
+Inspect existing tags:
+
+```bash
+git tag --list
+```
+
+If you need to replace a mistaken tag:
+
+```bash
+git tag -d v0.1.0
+git push origin :refs/tags/v0.1.0
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
+```
+
+### Trigger a release manually
+
+You can also dispatch the workflow manually with GitHub CLI:
+
+```bash
+gh workflow run release.yml -f tag_name=v0.1.0
+```
+
+The workflow uses the provided `tag_name` to create or update the GitHub Release.
+
+Current release outputs:
+
+| Platform | Raw artifact | Package / installer |
+|---|---|---|
+| macOS | `.app` | `.zip` |
+| Windows | `.exe` | NSIS installer `.exe` |
+| Linux | raw binary | `.deb` |
+
+The first workflow version intentionally skips code signing and notarization. For macOS signing, see `docs/macos-code-signing.md`.
+
 ## Platform status
 
 | platform | status | notes |
