@@ -25,7 +25,7 @@
 
 | Track | Buildable now | Installable now | Notes |
 |---|---|---|---|
-| `wails/` | Yes | Local binary only | CLI、annotation/export、目前 GUI shell 已接線 |
+| `wails/` | Yes | Yes, via local build or unsigned release artifacts | CLI、annotation/export、GUI shell、CI/CD workflow 已接線 |
 | `qt/` | No | No | 目前 repo 內尚未建立 Python/uv 專案檔 |
 | `tauri/` | No | No | 目前 repo 內尚未建立 Rust/Node 專案檔 |
 
@@ -42,8 +42,8 @@ PRD 目標平台：
 | OS | Wails CLI | Wails GUI build | Notes |
 |---|---|---|---|
 | macOS | Yes | Yes | 需要 Screen Recording 權限 |
-| Linux | Partial | Build not verified here | capture backend 仍是 stub |
-| Windows | Partial | Build not verified here | capture backend 仍是 stub |
+| Linux | Yes | CI workflow 已規劃，runner 實跑驗證待補 | Portal capture、export、clipboard、global hotkey 已有實作 |
+| Windows | Yes | CI workflow 已規劃，runner 實跑驗證待補 | GDI capture、PowerShell region overlay、export、clipboard 已有實作；blur export 仍有限制 |
 
 ## Build prerequisites
 
@@ -60,12 +60,16 @@ PRD 目標平台：
 ### Linux
 
 - Go 1.22+
-- 桌面環境相依套件尚未在 repo 內固定，因 Linux capture/backend 仍未完成
+- `libgtk-3-dev`
+- `libwebkit2gtk-4.1-dev`
+- `librsvg2-bin`
+- `xclip`（或 Wayland 使用 `wl-clipboard`）
 
 ### Windows
 
 - Go 1.22+
-- Windows-specific capture/backend 仍未完成
+- Wails CLI
+- NSIS（若要產 installer）
 
 ## Build and run
 
@@ -102,9 +106,11 @@ repo 現在包含兩個針對 `wails/` 軌的 workflow：
 - `.github/workflows/ci.yml`：在 PR / push 時跑 Linux 測試與 build，並在 macOS / Windows 做 Wails smoke build。
 - `.github/workflows/release.yml`：在 `v*` tag 或手動觸發時產出 unsigned release artifacts，並發佈到 GitHub Release。
 
+`ci.yml` 目前已設定 `paths-ignore`，所以**純文檔變更**（例如 `*.md`、`docs/`、`plan/`）**不會觸發 CI**。
+
 ### 觸發 CI（push / pull request）
 
-推 code 到遠端分支時，GitHub Actions 會自動跑 `ci.yml`。常見指令：
+推 code 到遠端分支時，GitHub Actions 會自動跑 `ci.yml`；但若本次變更只有文檔，則會被 `paths-ignore` 跳過。常見指令：
 
 ```bash
 # 建新分支並推上去，會觸發 push CI
@@ -122,7 +128,7 @@ git commit -m "Update workflow docs"
 git push
 ```
 
-若你在 GitHub 上對該分支開 PR，`pull_request` 事件也會再跑一次 CI。
+若你在 GitHub 上對該分支開 PR，`pull_request` 事件也會再跑一次 CI；同樣地，純文檔 PR 也會被跳過。
 
 ### 觸發 Release（tag）
 
@@ -216,12 +222,18 @@ install -m 755 ./build/bin/snapvector-production /usr/local/bin/snapvector-produ
 
 ### Windows
 
-目前沒有 MSI / installer。請先 build 出 binary，再直接從 `build\\bin\\` 執行。
+repo 目前沒有直接提交 installer 檔，但 `release.yml` 可產出：
+
+- raw `.exe`
+- NSIS installer `.exe`
+
+若只在本地 build，仍可直接從 `build\\bin\\` 執行。
 
 ## Cross-platform caveats
 
 - `wails/` 的 CLI/GUI 主體目前以 macOS 驗證最完整。
-- Linux 與 Windows 的 native capture backend、packaging、installer 還在 Phase 4。
+- Linux 與 Windows backend 已有實作，但仍需要更多 end-to-end 驗證。
+- packaging workflow 與 release workflow 已落地；GitHub-hosted runner 的實跑驗證與 signing / notarization 仍待補。
 - `qt/` 與 `tauri/` 尚未進入可建置狀態，README 先誠實標示為 not bootstrapped。
 
 ## Plans and execution tracking

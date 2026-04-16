@@ -182,9 +182,11 @@ The repository now includes GitHub Actions automation for the Wails track:
 - `../.github/workflows/ci.yml` runs Linux tests/builds on PRs and pushes, plus macOS/Windows Wails smoke builds.
 - `../.github/workflows/release.yml` builds unsigned release artifacts on `v*` tags or manual dispatch and publishes them to GitHub Releases.
 
+`ci.yml` now uses `paths-ignore`, so docs-only changes (`*.md`, `docs/`, `plan/`) do not trigger CI.
+
 ### Trigger CI on push / pull request
 
-Pushing a branch to GitHub automatically runs `ci.yml`:
+Pushing a branch to GitHub automatically runs `ci.yml`, unless the change is docs-only and gets skipped by `paths-ignore`:
 
 ```bash
 git checkout -b feature/github-actions-release
@@ -201,7 +203,7 @@ git commit -m "Update workflow docs"
 git push
 ```
 
-Opening a pull request for that branch triggers the `pull_request` path as well.
+Opening a pull request for that branch triggers the `pull_request` path as well; docs-only PRs are skipped too.
 
 ### Trigger a release from a tag
 

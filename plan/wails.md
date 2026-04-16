@@ -2,190 +2,119 @@
 
 ## Objective
 
-Establish the Wails track as the primary SnapVector implementation candidate by first building a correct CLI foundation, then layering annotation/export, GUI, and cross-platform support in phases that stay aligned with `PRD.md`.
+Keep the Wails track as the leading SnapVector implementation candidate by
+tracking what is already shipped, what is partially verified, and what still
+blocks a production-ready cross-platform release.
 
 ## Current state
 
-- `wails/` has no Go module or application code yet.
-- A prior Phase 1 CLI PoC draft exists at `docs/superpowers/plans/2026-04-14-wails-phase1-cli-poc.md`.
-- That draft is a useful starting point, but it should be treated as superseded because it depends on several incorrect or risky assumptions:
-  - `screencapture` stdout streaming for PNG capture
-  - GUI panic stub counted as dual-mode completion
-  - PRD JSON codes reused as shell exit codes
-  - unsupported-platform errors collapsed into retryable permission failures
+`wails/` is no longer a bootstrap track. It already contains working code for:
 
-## Plan overview
-
-We will use a four-phase roadmap:
-
-1. **Phase 1: Corrected CLI foundation**
-2. **Phase 2: Annotation and export core**
-3. **Phase 3: Wails GUI shell**
-4. **Phase 4: Cross-platform backends and packaging**
-
-Each phase should only claim the PRD surface it truly implements.
-
-## Phase 1: Corrected CLI foundation
-
-### Goal
-
-Ship a working `snapvector --capture --base64-stdout` PoC on macOS with canonical JSON stdout responses and a clean package structure that later phases can extend.
-
-### Scope
-
-In scope:
-
-- Go module bootstrap under `wails/`
-- CLI entrypoint and argv dispatch
-- canonical JSON response schema for stdout
+- dual-mode binary entrypoint (CLI + GUI)
+- canonical CLI JSON responses
 - `--capture --base64-stdout`
-- `--help` and `--version`
-- `--inject-svg` accepted but returning structured not-yet-implemented error
-- darwin capture backend
-- linux/windows stub backends with accurate error semantics
-- tests, smoke checks, benchmark script, and Wails-track README
-
-Out of scope:
-
-- annotation rendering
-- SVG composition and export
-- PNG/JPG/PDF export
-- clipboard support
-- Wails frontend/app shell
-- Wayland and Windows native capture implementations
-
-### Architecture
-
-Suggested package layout:
-
-```text
-wails/
-├── go.mod
-├── main.go
-├── cli/
-│   ├── cli.go
-│   ├── flags.go
-│   ├── response.go
-│   ├── help.go
-│   ├── response_test.go
-│   ├── flags_test.go
-│   └── cli_test.go
-├── capture/
-│   ├── capture.go
-│   ├── capture_darwin.go
-│   ├── capture_linux.go
-│   ├── capture_windows.go
-│   └── capture_darwin_test.go
-├── gui/
-│   └── gui.go
-├── scripts/
-│   └── bench-cli.sh
-└── README.md
-```
-
-### Critical implementation rules
-
-- The PRD JSON `code` field is part of the stdout API contract, not the shell exit code contract.
-- Phase 1 should use shell-safe process exit codes (`0` on success, `1` on failure).
-- The darwin backend should not assume stdout capture from `screencapture`; use a temp file and load bytes back into memory.
-- Unsupported platform, permission denied, and generic capture failure must be distinct internal error cases so `retryable` is truthful.
-- The GUI branch may remain a stub in Phase 1, but documentation must not claim full F4.1 completion unless it becomes a usable path.
-
-### Phase 1 task breakdown
-
-#### Task 1 — Bootstrap module and command routing
-
-- Initialize `wails/go.mod`
-- Add `main.go`
-- Route CLI invocations to `cli.Run`
-- Keep a GUI placeholder package that is explicit about being non-product in Phase 1
-
-#### Task 2 — Canonical CLI response layer
-
-- Define `CLIResponse` and `ErrorPayload`
-- Encode only JSON to stdout
-- Add tests for ok/error shapes and required field behavior
-- Define status-code taxonomy aligned to PRD ranges
-
-#### Task 3 — Flag parsing and command dispatch
-
-- Parse `--capture`, `--base64-stdout`, `--inject-svg`, `--help`, `--version`
-- Reject invalid combinations as usage errors
-- Return structured not-implemented response for `--inject-svg`
-
-#### Task 4 — Darwin capture backend
-
-- Implement full-screen capture using temp-file `screencapture`
-- Read PNG bytes back into memory
-- Base64-encode for `data.base64`
-- Surface decoded image dimensions as optional metadata when available
-- Add darwin tests that verify the returned data is decodable PNG
-
-#### Task 5 — Error mapping and exit behavior
-
-- Map internal failures to truthful PRD JSON codes
-- Keep process exit code independent and shell-safe
-- Ensure unsupported platform is not reported as retryable permission denial
-
-#### Task 6 — Verification and docs
-
-- Run `go build`, `go test`, and `go vet`
-- Add smoke-test commands
-- Add benchmark wrapper and record measured baseline
-- Document what Phase 1 does and does not satisfy from the PRD
-
-## Phase 2: Annotation and export core
-
-### Goal
-
-Implement the rendering/composition core that both CLI and GUI will share conceptually, while keeping code ownership inside the Wails track.
-
-### Scope
-
-- `--inject-svg` payload validation
-- annotation model types
-- SVG symbol/token alignment with `design/`
-- single-file SVG output
-- raster/PDF flatten export
-- blur region support with consistent semantics
+- `--inject-svg` payload parsing and SVG composition
+- SVG / PNG / JPG / PDF export paths
 - clipboard output
+- Wails GUI shell with canvas, tools, inspector, undo/redo, zoom, and pan
+- Linux and Windows platform backends
+- Linux `.deb` packaging script
+- GitHub Actions CI / release workflow definitions
+
+## Verified now
+
+- `go test ./...`
+- `go vet ./...`
+- `go build -o ./build/bin/snapvector .`
+- `go build -tags production -o ./build/bin/snapvector-production .`
+- `./build/bin/snapvector --version`
+- `./build/bin/snapvector --capture --base64-stdout`
+- `./build/bin/snapvector --inject-svg '[]'`
+- `./build/bin/snapvector-production`
+
+## Roadmap overview
+
+The work is now best understood as:
+
+1. **Phase 1: CLI foundation** — done
+2. **Phase 2: Annotation/export core** — done
+3. **Phase 3: GUI shell** — in progress
+4. **Phase 4: Release hardening and distribution** — in progress
+
+## Phase 1: CLI foundation
+
+### Delivered
+
+- argv dispatch between CLI and GUI
+- canonical top-level JSON schema
+- `--help`
+- `--version`
+- `--capture --base64-stdout`
+- truthful CLI error taxonomy with JSON `code` separate from shell exit code
 
 ### Notes
 
-- This phase should land before serious GUI tool work so the CLI and GUI share the same geometry/output contract.
+- The CLI contract is already wired as the shared foundation for later release
+  and GUI work.
 
-## Phase 3: Wails GUI shell
+## Phase 2: Annotation and export core
 
-### Goal
+### Delivered
 
-Turn the Wails track into a usable desktop annotation app backed by the already-built CLI/rendering primitives.
+- canonical `--inject-svg` payload parsing and validation
+- single-file SVG output with embedded screenshot
+- symbol-backed rendering for arrow, rectangle, ellipse, text, blur, and
+  numbered-circle payload semantics where implemented in the current renderer
+- flattened export to `png`, `jpg`, and `pdf`
+- clipboard output
 
-### Scope
+### Remaining caveats
 
-- Wails app bootstrap
-- region-selection overlay
-- annotation canvas
-- text/arrow/shape/blur tools
-- direct manipulation handles
-- undo/redo
-- export and clipboard entry points
+- Windows export still cannot render blur annotations because the current
+  `oksvg` stack does not support `<feGaussianBlur>`.
 
-## Phase 4: Cross-platform backends and packaging
+## Phase 3: GUI shell
 
-### Goal
+### Delivered
 
-Complete the evaluation track for Linux/Windows support and end-user distribution.
+- Wails app bootstrap from the same binary shape
+- screenshot handoff into the frontend canvas
+- tool rail, selection model, resize handles, inspector, undo/redo, zoom, pan
+- GUI-side payload preview aligned with CLI geometry semantics
 
-### Scope
+### Still missing
 
-- Wayland/XDG portal capture
-- Windows native capture
-- packaging artifacts
-- install/distribution workflow
-- benchmark comparison across platforms and against other tracks
+- desktop-wide region-selection overlay before capture
+- full end-to-end verification of native visible-window export flows on every
+  target platform
 
-## Execution notes
+## Phase 4: Release hardening and distribution
 
-- Treat `docs/superpowers/plans/2026-04-14-wails-phase1-cli-poc.md` as legacy reference, not source of truth.
-- Use `/plan/wails.md` as the current plan of record for the Wails track.
-- Update this file when a phase boundary, architecture decision, or PRD interpretation changes.
+### Delivered
+
+- Linux `.deb` packaging script in `wails/scripts/package-deb.sh`
+- root-level GitHub Actions workflows for:
+  - CI on push / pull request
+  - release artifact generation on `v*` tags or manual dispatch
+- unsigned release artifact strategy:
+  - macOS: `.app` + `.zip`
+  - Windows: raw `.exe` + NSIS installer
+  - Linux: raw binary + `.deb`
+
+### Still missing
+
+- GitHub-hosted runner proof for every release job
+- macOS signing and notarization
+- optional Windows code signing
+- final release artifact naming/versioning conventions after the first real
+  release run
+- measured benchmark records in repo docs
+
+## Decision notes
+
+- `docs/superpowers/plans/2026-04-14-wails-phase1-cli-poc.md` remains legacy
+  reference only.
+- `wails/README.md` is the most accurate implementation-status document for the
+  Wails track.
+- `plan/todo.md` remains the execution checklist and should only mark items done
+  after the relevant build, test, or workflow has actually run successfully.
