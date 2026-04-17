@@ -105,6 +105,145 @@ func TestExportDocumentPNGCopiesConvertedBytes(t *testing.T) {
 	}
 }
 
+func TestExportDocumentToFilePromptsAndWritesSVG(t *testing.T) {
+	app := NewApp()
+	rawPNG := mustPNG(t)
+	payload := `[{"id":"rect-1","type":"rectangle","x":12,"y":18,"width":80,"height":44}]`
+	exportDir := filepath.Join(t.TempDir(), "exports")
+	if err := os.MkdirAll(exportDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll export dir: %v", err)
+	}
+	app.preferencesStore = &PreferencesStore{configDir: t.TempDir()}
+	if _, err := app.SavePreferences(Preferences{ExportDirectory: exportDir}); err != nil {
+		t.Fatalf("SavePreferences err = %v", err)
+	}
+
+	result, err := app.ExportDocumentToFile(payload, base64.StdEncoding.EncodeToString(rawPNG), 160, 120, "svg", "capture-01.sv.json")
+	if err != nil {
+		t.Fatalf("ExportDocumentToFile returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected export save result")
+	}
+	if result.Path != filepath.Join(exportDir, "capture-01.svg") || result.Name != "capture-01.svg" {
+		t.Fatalf("unexpected export save result: %+v", result)
+	}
+	gotContents, err := os.ReadFile(result.Path)
+	if err != nil {
+		t.Fatalf("ReadFile result.Path: %v", err)
+	}
+	if !bytes.Contains(gotContents, []byte("<svg")) {
+		t.Fatalf("expected svg output, got %q", string(gotContents))
+	}
+}
+
+func TestExportDocumentToFilePromptsAndWritesPNG(t *testing.T) {
+	app := NewApp()
+	rawPNG := mustPNG(t)
+	payload := `[{"id":"rect-1","type":"rectangle","x":12,"y":18,"width":80,"height":44}]`
+	exportDir := filepath.Join(t.TempDir(), "exports")
+	if err := os.MkdirAll(exportDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll export dir: %v", err)
+	}
+	app.preferencesStore = &PreferencesStore{configDir: t.TempDir()}
+	if _, err := app.SavePreferences(Preferences{ExportDirectory: exportDir}); err != nil {
+		t.Fatalf("SavePreferences err = %v", err)
+	}
+
+	app.convertExporter = func(_ context.Context, svg string, format string) ([]byte, string, error) {
+		if svg == "" {
+			t.Fatal("expected non-empty svg input")
+		}
+		if format != "png" {
+			t.Fatalf("format = %q, want png", format)
+		}
+		return []byte("png-bytes"), "image/png", nil
+	}
+	result, err := app.ExportDocumentToFile(payload, base64.StdEncoding.EncodeToString(rawPNG), 160, 120, "png", "capture-02")
+	if err != nil {
+		t.Fatalf("ExportDocumentToFile returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected export save result")
+	}
+	if result.Path != filepath.Join(exportDir, "capture-02.png") || result.Name != "capture-02.png" {
+		t.Fatalf("unexpected export save result: %+v", result)
+	}
+	gotContents, err := os.ReadFile(result.Path)
+	if err != nil {
+		t.Fatalf("ReadFile result.Path: %v", err)
+	}
+	if !bytes.Equal(gotContents, []byte("png-bytes")) {
+		t.Fatalf("write contents = %q", string(gotContents))
+	}
+}
+
+func TestExportDocumentToFileUsesDefaultExportDirectoryOnFirstRun(t *testing.T) {
+	app := NewApp()
+	rawPNG := mustPNG(t)
+	homeDir := t.TempDir()
+	app.preferencesStore = &PreferencesStore{
+		configDir:   t.TempDir(),
+		userHomeDir: func() (string, error) { return homeDir, nil },
+	}
+
+	result, err := app.ExportDocumentToFile(`[]`, base64.StdEncoding.EncodeToString(rawPNG), 160, 120, "svg", "capture-03")
+	if err != nil {
+		t.Fatalf("ExportDocumentToFile returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected export save result")
+	}
+	wantPath := filepath.Join(homeDir, "Downloads", "capture-03.svg")
+	if result.Path != wantPath || result.Name != "capture-03.svg" {
+		t.Fatalf("unexpected export save result: %+v", result)
+	}
+}
+
+func TestExportDocumentToFileAddsSuffixWhenTargetExists(t *testing.T) {
+	app := NewApp()
+	rawPNG := mustPNG(t)
+	payload := `[{"id":"rect-1","type":"rectangle","x":12,"y":18,"width":80,"height":44}]`
+	exportDir := filepath.Join(t.TempDir(), "exports")
+	if err := os.MkdirAll(exportDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll export dir: %v", err)
+	}
+	app.preferencesStore = &PreferencesStore{configDir: t.TempDir()}
+	if _, err := app.SavePreferences(Preferences{ExportDirectory: exportDir}); err != nil {
+		t.Fatalf("SavePreferences err = %v", err)
+	}
+	app.convertExporter = func(_ context.Context, svg string, format string) ([]byte, string, error) {
+		if svg == "" {
+			t.Fatal("expected non-empty svg input")
+		}
+		if format != "png" {
+			t.Fatalf("format = %q, want png", format)
+		}
+		return []byte("png-bytes"), "image/png", nil
+	}
+	if err := os.WriteFile(filepath.Join(exportDir, "capture-04.png"), []byte("existing"), 0o644); err != nil {
+		t.Fatalf("WriteFile existing export: %v", err)
+	}
+
+	result, err := app.ExportDocumentToFile(payload, base64.StdEncoding.EncodeToString(rawPNG), 160, 120, "png", "capture-04")
+	if err != nil {
+		t.Fatalf("ExportDocumentToFile returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected export save result")
+	}
+	if result.Path != filepath.Join(exportDir, "capture-04-2.png") || result.Name != "capture-04-2.png" {
+		t.Fatalf("unexpected export save result: %+v", result)
+	}
+	gotContents, err := os.ReadFile(result.Path)
+	if err != nil {
+		t.Fatalf("ReadFile result.Path: %v", err)
+	}
+	if !bytes.Equal(gotContents, []byte("png-bytes")) {
+		t.Fatalf("write contents = %q", string(gotContents))
+	}
+}
+
 func TestCaptureRegionUsesInteractiveMetadata(t *testing.T) {
 	rawPNG := mustPNG(t)
 	app := NewApp()
@@ -463,5 +602,59 @@ func TestAppResetHotkeysDeletesFile(t *testing.T) {
 	path := filepath.Join(dir, "SnapVector", "hotkeys.json")
 	if _, statErr := os.Stat(path); !errors.Is(statErr, fs.ErrNotExist) {
 		t.Fatalf("hotkeys.json still exists after Reset: stat err = %v", statErr)
+	}
+}
+
+func TestAppSavePreferencesPersistsAndReloads(t *testing.T) {
+	dir := t.TempDir()
+	exportDir := filepath.Join(dir, "exports")
+	if err := os.MkdirAll(exportDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll export dir: %v", err)
+	}
+	app := NewApp()
+	app.preferencesStore = &PreferencesStore{configDir: dir}
+
+	if _, err := app.SavePreferences(Preferences{ExportDirectory: exportDir}); err != nil {
+		t.Fatalf("SavePreferences err = %v", err)
+	}
+	got, err := app.GetPreferences()
+	if err != nil {
+		t.Fatalf("GetPreferences err = %v", err)
+	}
+	if got.ExportDirectory != exportDir {
+		t.Fatalf("exportDirectory = %q, want %q", got.ExportDirectory, exportDir)
+	}
+}
+
+func TestAppResetPreferencesDeletesFile(t *testing.T) {
+	dir := t.TempDir()
+	homeDir := filepath.Join(dir, "home")
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll home dir: %v", err)
+	}
+	exportDir := filepath.Join(dir, "exports")
+	if err := os.MkdirAll(exportDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll export dir: %v", err)
+	}
+	app := NewApp()
+	app.preferencesStore = &PreferencesStore{
+		configDir:   dir,
+		userHomeDir: func() (string, error) { return homeDir, nil },
+	}
+
+	if _, err := app.SavePreferences(Preferences{ExportDirectory: exportDir}); err != nil {
+		t.Fatalf("SavePreferences err = %v", err)
+	}
+	got, err := app.ResetPreferences()
+	if err != nil {
+		t.Fatalf("ResetPreferences err = %v", err)
+	}
+	wantDefault := filepath.Join(homeDir, "Downloads")
+	if got.ExportDirectory != wantDefault {
+		t.Fatalf("Reset returned exportDirectory = %q, want %q", got.ExportDirectory, wantDefault)
+	}
+	path := filepath.Join(dir, "SnapVector", "preferences.json")
+	if _, statErr := os.Stat(path); !errors.Is(statErr, fs.ErrNotExist) {
+		t.Fatalf("preferences.json still exists after Reset: stat err = %v", statErr)
 	}
 }

@@ -919,6 +919,45 @@ body {
   color: var(--muted);
   margin: 0 0 8px;
 }
+.preferences-setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: var(--ink);
+}
+.preferences-setting:hover { background: var(--surface-soft); }
+.preferences-setting-copy {
+  display: grid;
+  gap: 4px;
+}
+.preferences-setting-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+.preferences-setting-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.preferences-setting-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+.preferences-path {
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.preferences-path::placeholder { color: var(--muted); }
 .hotkey-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
