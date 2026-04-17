@@ -117,8 +117,11 @@ func TestComposeUsesBaselineGeometryRatios(t *testing.T) {
 	if !strings.Contains(svg, `viewBox="0 0 220 140"`) {
 		t.Fatalf("expected baseline rectangle/blur viewBox, got %q", svg)
 	}
-	if !strings.Contains(svg, `x="14" y="14" width="192" height="112" rx="18"`) {
-		t.Fatalf("expected baseline inset geometry, got %q", svg)
+	if !strings.Contains(svg, `<symbol id="ann-symbol-0-rect-1" viewBox="0 0 220 140" overflow="visible">`) {
+		t.Fatalf("expected overflow=visible on rectangle symbol, got %q", svg)
+	}
+	if !strings.Contains(svg, `x="0" y="0" width="220" height="140" rx="18"`) {
+		t.Fatalf("expected rectangle at full bounds, got %q", svg)
 	}
 }
 
@@ -143,6 +146,8 @@ func TestComposeBlurKeepsSemanticStructure(t *testing.T) {
 		t.Fatalf("Compose returned error: %v", err)
 	}
 
+	assertContains(t, svg, `<symbol id="ann-symbol-0-blur-1" viewBox="0 0 220 140" overflow="visible">`)
+	assertContains(t, svg, `<rect x="0" y="0" width="220" height="140" rx="18" fill="#FFFFFF" opacity="0.14"/>`)
 	assertContains(t, svg, `<clipPath id="ann-symbol-0-blur-1-clip">`)
 	assertContains(t, svg, `<filter id="ann-symbol-0-blur-1-filter"`)
 	assertContains(t, svg, `<feGaussianBlur stdDeviation="12"/>`)
@@ -197,6 +202,31 @@ func TestComposeRendersNumberedCircle(t *testing.T) {
 	}
 	if !strings.Contains(svg, `text-anchor="middle"`) || !strings.Contains(svg, `dominant-baseline="central"`) {
 		t.Fatalf("text not centered: %q", svg)
+	}
+}
+
+func TestComposeRendersEllipseFullBounds(t *testing.T) {
+	svg, err := Compose(mustPNG(t), 400, 240, []annotation.Annotation{
+		{
+			ID:           "oval-1",
+			Type:         annotation.TypeEllipse,
+			StrokeColor:  "#E53935",
+			OutlineColor: "#FFFFFF",
+			StrokeWidth:  10,
+			X:            10,
+			Y:            20,
+			Width:        200,
+			Height:       120,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Compose returned error: %v", err)
+	}
+	if !strings.Contains(svg, `<symbol id="ann-symbol-0-oval-1" viewBox="0 0 200 120" overflow="visible">`) {
+		t.Fatalf("expected overflow=visible on ellipse symbol, got %q", svg)
+	}
+	if !strings.Contains(svg, `cx="100" cy="60" rx="100" ry="60"`) {
+		t.Fatalf("expected ellipse to fill full bounds, got %q", svg)
 	}
 }
 
