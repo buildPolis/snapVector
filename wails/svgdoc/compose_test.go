@@ -200,8 +200,11 @@ func TestComposeRendersNumberedCircle(t *testing.T) {
 	if !strings.Contains(svg, `>7</text>`) {
 		t.Fatalf("missing number text: %q", svg)
 	}
-	if !strings.Contains(svg, `text-anchor="middle"`) || !strings.Contains(svg, `dominant-baseline="central"`) {
-		t.Fatalf("text not centered: %q", svg)
+	if !strings.Contains(svg, `text-anchor="middle"`) || !strings.Contains(svg, `dy=".35em"`) {
+		t.Fatalf("text not centered (expected text-anchor=middle + dy=.35em): %q", svg)
+	}
+	if strings.Contains(svg, `dominant-baseline="central"`) {
+		t.Fatalf("dominant-baseline=central should be removed (sips renders it wrong): %q", svg)
 	}
 }
 

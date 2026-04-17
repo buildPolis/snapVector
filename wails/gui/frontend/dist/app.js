@@ -1067,8 +1067,8 @@ function renderVectorAnnotations() {
       const text = document.createElementNS(SVG_NS, "text");
       text.setAttribute("x", ann.x);
       text.setAttribute("y", ann.y);
+      text.setAttribute("dy", ".35em");
       text.setAttribute("text-anchor", "middle");
-      text.setAttribute("dominant-baseline", "central");
       text.setAttribute("font-size", r * 1.25);
       text.setAttribute("font-weight", "800");
       text.setAttribute("fill", ann.textColor || "#FFFFFF");

@@ -414,7 +414,7 @@ func renderNumberedCircle(idx int, ann annotation.Annotation) renderedAnnotation
 	def := fmt.Sprintf(
 		`<symbol id="%s" viewBox="0 0 %s %s">`+
 			`<circle cx="%s" cy="%s" r="%s" fill="%s" stroke="%s" stroke-width="%s" paint-order="stroke fill"/>`+
-			`<text class="sv-text" x="%s" y="%s" font-size="%s" fill="%s" text-anchor="middle" dominant-baseline="central">%s</text>`+
+			`<text class="sv-text" x="%s" y="%s" dy=".35em" font-size="%s" fill="%s" text-anchor="middle">%s</text>`+
 			`</symbol>`,
 		symbolID,
 		formatFloat(viewSize),
