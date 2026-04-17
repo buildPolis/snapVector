@@ -381,6 +381,10 @@ background.
 
 Defaults cover tools, editing, capture, zoom, and export actions.
 Customize via **File → Preferences…** (or press `Cmd+,` / `Ctrl+,`).
+The same Preferences window now also stores a fixed **Export folder**. Once set,
+GUI **Export** writes directly into that folder instead of prompting for a save
+location every time. If you never change it, SnapVector defaults to each
+platform's `Downloads` folder.
 
 Settings live at:
 
@@ -388,7 +392,14 @@ Settings live at:
 - Linux: `~/.config/SnapVector/hotkeys.json`
 - Windows: `%APPDATA%\SnapVector\hotkeys.json`
 
-Delete the file (or click **Reset all defaults** in Preferences) to restore defaults.
+Export-folder preferences live alongside them:
+
+- macOS: `~/Library/Application Support/SnapVector/preferences.json`
+- Linux: `~/.config/SnapVector/preferences.json`
+- Windows: `%APPDATA%\SnapVector\preferences.json`
+
+Delete the file (or click **Reset all defaults** in Preferences) to restore defaults,
+including the platform-default export folder.
 
 ### Frontend unit tests
 

@@ -95,9 +95,18 @@ const hotkeys = {
 
 const prefs = {
   draft: [],           // working copy during modal session
+  exportDirectory: "",
   dirty: false,
   recordingAction: null,
   recordingBuffer: "",
+};
+
+const userPreferences = {
+  exportDirectory: "",
+};
+
+const defaultPreferences = {
+  exportDirectory: "",
 };
 
 const els = {
@@ -173,6 +182,7 @@ async function init() {
   loadTab(firstTab.id);
   bindUI();
   renderTabStrip();
+  await loadPreferences();
   await loadHotkeys();
   window.addEventListener("keydown", onRecorderKeydown, true); // capture phase
   window.addEventListener("keydown", onGlobalKeydown);
@@ -241,17 +251,21 @@ function bindUI() {
   });
 
   els.preferencesResetAll.addEventListener("click", async () => {
-    if (!confirm("Reset all hotkeys to defaults?")) return;
+    if (!confirm("Reset export folder and hotkeys to defaults?")) return;
     try {
-      const defaults = await backend.resetHotkeys();
+      const [nextPreferences, defaults] = await Promise.all([
+        backend.resetPreferences(),
+        backend.resetHotkeys(),
+      ]);
+      userPreferences.exportDirectory = normalizePreferencePath(nextPreferences?.exportDirectory);
+      prefs.exportDirectory = userPreferences.exportDirectory;
       prefs.draft = defaults.map((b) => ({ ...b }));
-      prefs.dirty = false;
+      syncPreferencesDirty();
       applyHotkeyBindings(defaults);
       renderPreferences();
-      showToast("已還原為預設熱鍵");
+      showToast("已還原 export folder 與熱鍵設定");
     } catch (err) {
-      els.preferencesStatus.textContent = `還原失敗：${err?.message || err}`;
-      els.preferencesStatus.classList.add("is-error");
+      setPreferencesError(`還原失敗：${err?.message || err}`);
     }
   });
 
@@ -916,6 +930,11 @@ function defaultDocumentName() {
   return "capture.sv.json";
 }
 
+function defaultExportName(format) {
+  const base = defaultDocumentName().replace(/\.sv\.json$/i, "");
+  return `${base || "snapvector-export"}.${format}`;
+}
+
 async function openDocument() {
   closeFileMenu();
   try {
@@ -1346,31 +1365,31 @@ function updateStatus() {
 
 async function exportCurrent(copyToClipboard) {
   if (!state.capture) return;
-  // Copy always produces PNG — that's what downstream apps (Slack, docs,
-  // issue trackers) consistently accept from the clipboard.
-  const format = copyToClipboard ? "png" : els.exportFormat.value;
-  const payload = JSON.stringify(state.annotations.map(toPayload));
-  const result = await backend.exportDocument(payload, state.capture.base64, state.capture.width, state.capture.height, format, copyToClipboard);
-  if (copyToClipboard) {
-    showToast(`已複製 ${format.toUpperCase()} 到剪貼簿`);
-    return;
-  }
-  downloadResult(result);
-  showToast(`已匯出 ${format.toUpperCase()}`);
-}
-
-function downloadResult(result) {
-  const link = document.createElement("a");
-  if (result.format === "svg") {
-    const blob = new Blob([result.svg], { type: result.mimeType });
-    link.href = URL.createObjectURL(blob);
-  } else {
-    link.href = `data:${result.mimeType};base64,${result.base64}`;
-  }
-  link.download = `snapvector-export.${result.format}`;
-  link.click();
-  if (link.href.startsWith("blob:")) {
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  try {
+    // Copy always produces PNG — that's what downstream apps (Slack, docs,
+    // issue trackers) consistently accept from the clipboard.
+    const format = copyToClipboard ? "png" : els.exportFormat.value;
+    const payload = JSON.stringify(state.annotations.map(toPayload));
+    if (copyToClipboard) {
+      await backend.exportDocument(payload, state.capture.base64, state.capture.width, state.capture.height, format, true);
+      showToast(`已複製 ${format.toUpperCase()} 到剪貼簿`);
+      return;
+    }
+    const result = await backend.exportDocumentToFile(
+      payload,
+      state.capture.base64,
+      state.capture.width,
+      state.capture.height,
+      format,
+      defaultExportName(format),
+    );
+    if (!result) {
+      return;
+    }
+    showToast(`已匯出到 ${result.path}`);
+  } catch (error) {
+    console.error(error);
+    showToast(String(error?.message || error));
   }
 }
 
@@ -1642,6 +1661,13 @@ function createBackend() {
       saveDocumentAs: (suggestedName, contents) => window.go.gui.App.SaveDocumentAs(suggestedName, contents),
       exportDocument: (payload, captureBase64, width, height, format, copy) =>
         window.go.gui.App.ExportDocument(payload, captureBase64, width, height, format, copy),
+      exportDocumentToFile: (payload, captureBase64, width, height, format, suggestedName) =>
+        window.go.gui.App.ExportDocumentToFile(payload, captureBase64, width, height, format, suggestedName),
+      getPreferences: () => window.go.gui.App.GetPreferences(),
+      defaultPreferences: () => window.go.gui.App.DefaultPreferences(),
+      savePreferences: (preferences) => window.go.gui.App.SavePreferences(preferences),
+      resetPreferences: () => window.go.gui.App.ResetPreferences(),
+      chooseExportDirectory: (current) => window.go.gui.App.ChooseExportDirectory(current),
       getHotkeys: () => window.go.gui.App.GetHotkeys(),
       saveHotkeys: (bindings) => window.go.gui.App.SaveHotkeys(bindings),
       resetHotkeys: () => window.go.gui.App.ResetHotkeys(),
@@ -1651,6 +1677,7 @@ function createBackend() {
   const mockDocuments = new Map();
   let mockCounter = 1;
   let mockHotkeys = [];
+  const mockPreferences = { exportDirectory: "/mock/Downloads" };
 
   return {
     async captureScreen() {
@@ -1691,6 +1718,32 @@ function createBackend() {
         svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`,
         base64: captureBase64,
       };
+    },
+    async exportDocumentToFile(payload, captureBase64, width, height, format, suggestedName) {
+      return {
+        path: `${mockPreferences.exportDirectory}/${suggestedName}`,
+        name: suggestedName.split("/").pop(),
+      };
+    },
+    async getPreferences() {
+      return { ...mockPreferences };
+    },
+    async defaultPreferences() {
+      return { exportDirectory: "/mock/Downloads" };
+    },
+    async savePreferences(preferences) {
+      mockPreferences.exportDirectory = normalizePreferencePath(preferences?.exportDirectory);
+      if (!mockPreferences.exportDirectory) {
+        mockPreferences.exportDirectory = "/mock/Downloads";
+      }
+      return { ...mockPreferences };
+    },
+    async resetPreferences() {
+      mockPreferences.exportDirectory = "/mock/Downloads";
+      return { ...mockPreferences };
+    },
+    async chooseExportDirectory(current) {
+      return current || "/mock/exports";
     },
     async getHotkeys() {
       return mockHotkeys.length ? mockHotkeys.slice() : defaultHotkeyBindings();
@@ -1792,6 +1845,21 @@ async function loadHotkeys() {
   } catch (err) {
     console.warn("loadHotkeys failed, falling back to defaults:", err);
     applyHotkeyBindings(defaultHotkeyBindings());
+  }
+}
+
+async function loadPreferences() {
+  try {
+    const [defaults, loaded] = await Promise.all([
+      backend.defaultPreferences(),
+      backend.getPreferences(),
+    ]);
+    defaultPreferences.exportDirectory = normalizePreferencePath(defaults?.exportDirectory);
+    userPreferences.exportDirectory = normalizePreferencePath(loaded?.exportDirectory);
+  } catch (err) {
+    console.warn("loadPreferences failed, falling back to defaults:", err);
+    defaultPreferences.exportDirectory = "/Downloads";
+    userPreferences.exportDirectory = defaultPreferences.exportDirectory;
   }
 }
 
@@ -1915,11 +1983,11 @@ const ACTION_GROUPS = [
 
 function openPreferences() {
   prefs.draft = hotkeys.bindings.map((b) => ({ ...b }));
-  prefs.dirty = false;
+  prefs.exportDirectory = userPreferences.exportDirectory;
   prefs.recordingAction = null;
   prefs.recordingBuffer = "";
-  els.preferencesStatus.textContent = "";
-  els.preferencesStatus.classList.remove("is-error");
+  syncPreferencesDirty();
+  clearPreferencesStatus();
   els.preferencesFilter.value = "";
   els.preferencesModal.classList.remove("is-hidden");
   closeFileMenu();
@@ -1940,6 +2008,9 @@ function renderPreferences() {
   const filter = els.preferencesFilter.value.trim().toLowerCase();
   const byAction = new Map(prefs.draft.map((b) => [b.action, b]));
   els.preferencesBody.innerHTML = "";
+  if (shouldShowExportPreference(filter)) {
+    els.preferencesBody.append(renderExportPreference());
+  }
   for (const group of ACTION_GROUPS) {
     const rows = group.actions
       .map((action) => ({ action, binding: byAction.get(action) }))
@@ -1978,6 +2049,52 @@ function renderPreferences() {
     }
     els.preferencesBody.append(groupEl);
   }
+}
+
+function renderExportPreference() {
+  const groupEl = document.createElement("div");
+  groupEl.className = "hotkey-group";
+  const title = document.createElement("h3");
+  title.className = "hotkey-group-title";
+  title.textContent = "Export";
+  groupEl.append(title);
+
+  const row = document.createElement("div");
+  row.className = "preferences-setting";
+  const copy = document.createElement("div");
+  copy.className = "preferences-setting-copy";
+  const label = document.createElement("span");
+  label.className = "preferences-setting-label";
+  label.textContent = "Export folder";
+  const hint = document.createElement("span");
+  hint.className = "preferences-setting-hint";
+  hint.textContent = "預設會用各平台的 Downloads 資料夾，按 Export 時直接寫進去，不再每次跳存檔視窗。";
+  copy.append(label, hint);
+
+  const controls = document.createElement("div");
+  controls.className = "preferences-setting-controls";
+  const input = document.createElement("input");
+  input.className = "preferences-path";
+  input.type = "text";
+  input.readOnly = true;
+  input.value = prefs.exportDirectory;
+  input.placeholder = defaultPreferences.exportDirectory || "Platform default Downloads folder";
+  const choose = document.createElement("button");
+  choose.type = "button";
+  choose.className = "ghost-btn";
+  choose.textContent = "Choose…";
+  choose.addEventListener("click", () => chooseExportDirectory());
+  const clear = document.createElement("button");
+  clear.type = "button";
+  clear.className = "ghost-btn";
+  clear.textContent = "Reset";
+  clear.disabled = prefs.exportDirectory === defaultPreferences.exportDirectory;
+  clear.addEventListener("click", () => resetExportDirectoryToDefault());
+  controls.append(input, choose, clear);
+
+  row.append(copy, controls);
+  groupEl.append(row);
+  return groupEl;
 }
 
 function updateFieldDisplay(fieldEl, combo) {
@@ -2020,22 +2137,77 @@ function setDraftCombo(action, combo) {
   if (!row) return;
   if (row.combo === combo) return;
   row.combo = combo;
-  prefs.dirty = true;
   resetRecordingState();
+  syncPreferencesDirty();
   renderPreferences();
 }
 
 async function savePreferences() {
   try {
+    const savedPreferences = await backend.savePreferences({ exportDirectory: prefs.exportDirectory });
     await backend.saveHotkeys(prefs.draft);
+    userPreferences.exportDirectory = normalizePreferencePath(savedPreferences?.exportDirectory);
+    prefs.exportDirectory = userPreferences.exportDirectory;
     applyHotkeyBindings(prefs.draft);
-    prefs.dirty = false;
+    syncPreferencesDirty();
     closePreferences();
-    showToast("已儲存熱鍵設定");
+    showToast("已儲存 Preferences");
   } catch (err) {
-    els.preferencesStatus.textContent = `儲存失敗：${err?.message || err}`;
-    els.preferencesStatus.classList.add("is-error");
+    setPreferencesError(`儲存失敗：${err?.message || err}`);
   }
+}
+
+function resetExportDirectoryToDefault() {
+  if (prefs.exportDirectory === defaultPreferences.exportDirectory) return;
+  prefs.exportDirectory = defaultPreferences.exportDirectory;
+  syncPreferencesDirty();
+  renderPreferences();
+}
+
+async function chooseExportDirectory() {
+  try {
+    const selected = await backend.chooseExportDirectory(prefs.exportDirectory || userPreferences.exportDirectory);
+    const next = normalizePreferencePath(selected);
+    if (!next) return;
+    prefs.exportDirectory = next;
+    syncPreferencesDirty();
+    renderPreferences();
+  } catch (err) {
+    setPreferencesError(`選擇資料夾失敗：${err?.message || err}`);
+  }
+}
+
+function shouldShowExportPreference(filter) {
+  if (!filter) return true;
+  const haystack = ["export", "folder", "path", "directory", "save", "匯出", "資料夾", "路徑"];
+  return haystack.some((token) => token.includes(filter) || filter.includes(token));
+}
+
+function normalizePreferencePath(path) {
+  return typeof path === "string" ? path.trim() : "";
+}
+
+function clearPreferencesStatus() {
+  els.preferencesStatus.textContent = "";
+  els.preferencesStatus.classList.remove("is-error");
+}
+
+function setPreferencesError(message) {
+  els.preferencesStatus.textContent = message;
+  els.preferencesStatus.classList.add("is-error");
+}
+
+function syncPreferencesDirty() {
+  prefs.dirty = prefs.exportDirectory !== userPreferences.exportDirectory || !sameHotkeyBindings(prefs.draft, hotkeys.bindings);
+}
+
+function sameHotkeyBindings(left, right) {
+  if (left.length !== right.length) return false;
+  return left.every((binding, index) =>
+    binding.action === right[index]?.action &&
+    binding.combo === right[index]?.combo &&
+    binding.scope === right[index]?.scope,
+  );
 }
 
 function onRecorderKeydown(event) {

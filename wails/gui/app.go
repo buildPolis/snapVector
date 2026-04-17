@@ -24,6 +24,7 @@ type App struct {
 	convertExporter      func(context.Context, string, string) ([]byte, string, error)
 	writeClipboard       func(context.Context, []byte, string) error
 	openFileDialog       func(context.Context, wailsruntime.OpenDialogOptions) (string, error)
+	openDirectoryDialog  func(context.Context, wailsruntime.OpenDialogOptions) (string, error)
 	saveFileDialog       func(context.Context, wailsruntime.SaveDialogOptions) (string, error)
 	readFile             func(string) ([]byte, error)
 	writeFile            func(string, []byte, os.FileMode) error
@@ -31,6 +32,7 @@ type App struct {
 	showWindow           func(context.Context)
 	preCaptureDelay      time.Duration
 	postCaptureHold      time.Duration
+	preferencesStore     *PreferencesStore
 	hotkeyStore          *HotkeyStore
 	globalHotkeyListener globalHotkeyListenerHandle
 }
@@ -67,18 +69,20 @@ type DocumentSaveResult struct {
 
 func NewApp() *App {
 	return &App{
-		newCapturer:     capture.NewPlatformCapturer,
-		convertExporter: exportdoc.Convert,
-		writeClipboard:  clipboarddoc.Write,
-		openFileDialog:  wailsruntime.OpenFileDialog,
-		saveFileDialog:  wailsruntime.SaveFileDialog,
-		readFile:        os.ReadFile,
-		writeFile:       os.WriteFile,
-		hideWindow:      wailsruntime.WindowHide,
-		showWindow:      wailsruntime.WindowShow,
-		preCaptureDelay: 250 * time.Millisecond,
-		postCaptureHold: 120 * time.Millisecond,
-		hotkeyStore:     NewHotkeyStore(),
+		newCapturer:         capture.NewPlatformCapturer,
+		convertExporter:     exportdoc.Convert,
+		writeClipboard:      clipboarddoc.Write,
+		openFileDialog:      wailsruntime.OpenFileDialog,
+		openDirectoryDialog: wailsruntime.OpenDirectoryDialog,
+		saveFileDialog:      wailsruntime.SaveFileDialog,
+		readFile:            os.ReadFile,
+		writeFile:           os.WriteFile,
+		hideWindow:          wailsruntime.WindowHide,
+		showWindow:          wailsruntime.WindowShow,
+		preCaptureDelay:     250 * time.Millisecond,
+		postCaptureHold:     120 * time.Millisecond,
+		preferencesStore:    NewPreferencesStore(),
+		hotkeyStore:         NewHotkeyStore(),
 	}
 }
 
@@ -208,6 +212,54 @@ func (a *App) ExportDocument(payload string, captureBase64 string, width int, he
 	}
 
 	return result, nil
+}
+
+func (a *App) ExportDocumentToFile(payload string, captureBase64 string, width int, height int, format string, suggestedName string) (*DocumentSaveResult, error) {
+	result, err := a.ExportDocument(payload, captureBase64, width, height, format, false)
+	if err != nil {
+		return nil, err
+	}
+
+	preferences, err := a.preferencesStore.Load()
+	if err != nil {
+		return nil, err
+	}
+	exportDir := strings.TrimSpace(preferences.ExportDirectory)
+	if exportDir == "" {
+		return nil, fmt.Errorf("export folder is unavailable")
+	}
+	if err := os.MkdirAll(exportDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create export folder: %w", err)
+	}
+	info, err := os.Stat(exportDir)
+	if err != nil {
+		return nil, fmt.Errorf("stat export folder: %w", err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("export folder is not a directory: %s", exportDir)
+	}
+
+	filename := defaultExportFilename(strings.TrimSpace(suggestedName), result.Format)
+	path, err := nextAvailableExportPath(exportDir, filename)
+	if err != nil {
+		return nil, err
+	}
+
+	var raw []byte
+	if result.Format == "svg" {
+		raw = []byte(result.SVG)
+	} else {
+		raw, err = base64.StdEncoding.DecodeString(result.Base64)
+		if err != nil {
+			return nil, fmt.Errorf("decode exported %s base64: %w", result.Format, err)
+		}
+	}
+
+	if err := a.writeFile(path, raw, 0o644); err != nil {
+		return nil, fmt.Errorf("write export: %w", err)
+	}
+
+	return &DocumentSaveResult{Path: path, Name: filepath.Base(path)}, nil
 }
 
 func (a *App) OpenDocument() (*DocumentOpenResult, error) {
@@ -354,6 +406,85 @@ func ensureDocumentExtension(path string) string {
 	return path + ".sv.json"
 }
 
+func defaultExportFilename(name string, format string) string {
+	base := strings.TrimSpace(name)
+	if base == "" {
+		base = "snapvector-export"
+	}
+	base = filepath.Base(base)
+	base = strings.TrimSuffix(base, filepath.Ext(base))
+	base = strings.TrimSuffix(base, ".sv")
+	base = strings.TrimSuffix(base, ".tar")
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "snapvector-export"
+	}
+	return ensureExportExtension(base, format)
+}
+
+func ensureExportExtension(path string, format string) string {
+	path = strings.TrimSpace(path)
+	format = strings.ToLower(strings.TrimSpace(format))
+	if path == "" || format == "" {
+		return path
+	}
+	ext := "." + format
+	if strings.HasSuffix(strings.ToLower(path), ext) {
+		return path
+	}
+	if currentExt := filepath.Ext(path); currentExt != "" {
+		return strings.TrimSuffix(path, currentExt) + ext
+	}
+	return path + ext
+}
+
+func exportFileDialogFilters(format string) []wailsruntime.FileFilter {
+	format = strings.ToLower(strings.TrimSpace(format))
+	switch format {
+	case "svg":
+		return []wailsruntime.FileFilter{{DisplayName: "SVG Image (*.svg)", Pattern: "*.svg"}}
+	case "png":
+		return []wailsruntime.FileFilter{{DisplayName: "PNG Image (*.png)", Pattern: "*.png"}}
+	case "jpg":
+		return []wailsruntime.FileFilter{{DisplayName: "JPEG Image (*.jpg)", Pattern: "*.jpg"}}
+	case "pdf":
+		return []wailsruntime.FileFilter{{DisplayName: "PDF Document (*.pdf)", Pattern: "*.pdf"}}
+	default:
+		return nil
+	}
+}
+
+func nextAvailableExportPath(dir string, filename string) (string, error) {
+	dir = strings.TrimSpace(dir)
+	filename = strings.TrimSpace(filename)
+	if dir == "" || filename == "" {
+		return "", fmt.Errorf("export folder and filename are required")
+	}
+
+	filename = filepath.Base(filename)
+	ext := filepath.Ext(filename)
+	base := strings.TrimSuffix(filename, ext)
+	if base == "" {
+		base = "snapvector-export"
+	}
+
+	candidate := filepath.Join(dir, filename)
+	if _, err := os.Stat(candidate); err == nil {
+		for suffix := 2; ; suffix++ {
+			next := filepath.Join(dir, fmt.Sprintf("%s-%d%s", base, suffix, ext))
+			if _, err := os.Stat(next); os.IsNotExist(err) {
+				return next, nil
+			} else if err != nil {
+				return "", fmt.Errorf("stat export target: %w", err)
+			}
+		}
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("stat export target: %w", err)
+	}
+
+	return candidate, nil
+}
+
 func fileDialogFilters() []wailsruntime.FileFilter {
 	// Wails darwin Save/Open dialogs map each extension token through
 	// UTType.typeWithFilenameExtension. Multi-dot extensions like "sv.json"
@@ -366,6 +497,43 @@ func fileDialogFilters() []wailsruntime.FileFilter {
 
 func (a *App) GetHotkeys() ([]Hotkey, error) {
 	return a.hotkeyStore.Load()
+}
+
+func (a *App) GetPreferences() (Preferences, error) {
+	return a.preferencesStore.Load()
+}
+
+func (a *App) DefaultPreferences() Preferences {
+	return a.preferencesStore.DefaultPreferences()
+}
+
+func (a *App) SavePreferences(preferences Preferences) (Preferences, error) {
+	if err := a.preferencesStore.Save(preferences); err != nil {
+		return Preferences{}, err
+	}
+	return a.preferencesStore.Load()
+}
+
+func (a *App) ResetPreferences() (Preferences, error) {
+	return a.preferencesStore.Reset()
+}
+
+func (a *App) ChooseExportDirectory(current string) (string, error) {
+	ctx, cancel := a.captureContext()
+	defer cancel()
+
+	path, err := a.openDirectoryDialog(ctx, wailsruntime.OpenDialogOptions{
+		Title:                "Choose SnapVector export folder",
+		DefaultDirectory:     strings.TrimSpace(current),
+		CanCreateDirectories: true,
+	})
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(path) == "" {
+		return "", nil
+	}
+	return filepath.Clean(path), nil
 }
 
 func (a *App) SaveHotkeys(bindings []Hotkey) error {
