@@ -185,9 +185,6 @@ func TestComposeRendersNumberedCircle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compose returned error: %v", err)
 	}
-	if !strings.Contains(svg, `<circle`) {
-		t.Fatalf("missing circle: %q", svg)
-	}
 	if !strings.Contains(svg, `fill="#2E86AB"`) {
 		t.Fatalf("missing fill color: %q", svg)
 	}
@@ -200,11 +197,26 @@ func TestComposeRendersNumberedCircle(t *testing.T) {
 	if !strings.Contains(svg, `>7</text>`) {
 		t.Fatalf("missing number text: %q", svg)
 	}
-	if !strings.Contains(svg, `text-anchor="middle"`) || !strings.Contains(svg, `dy=".35em"`) {
-		t.Fatalf("text not centered (expected text-anchor=middle + dy=.35em): %q", svg)
+	// Inlined (no <symbol>+<use>): circle at outer coords (X=50, Y=60, r=20).
+	// Text uses proportional numbers (pnum) so "1" narrows and centers naturally
+	// — no per-digit x compensation needed. x=50, y=60+25*0.35=68.75.
+	if !strings.Contains(svg, `<circle cx="50" cy="60" r="20"`) {
+		t.Fatalf("expected inline circle at outer coords: %q", svg)
 	}
-	if strings.Contains(svg, `dominant-baseline="central"`) {
-		t.Fatalf("dominant-baseline=central should be removed (sips renders it wrong): %q", svg)
+	if !strings.Contains(svg, `x="50" y="68.75" font-size="25"`) {
+		t.Fatalf("expected inline text at x=50, y=68.75: %q", svg)
+	}
+	if !strings.Contains(svg, `text-anchor="middle"`) {
+		t.Fatalf("text not horizontally centered: %q", svg)
+	}
+	if !strings.Contains(svg, `style="font-feature-settings:'pnum'"`) {
+		t.Fatalf("expected pnum (proportional-nums) to fix '1' advance bias: %q", svg)
+	}
+	if strings.Contains(svg, `<symbol id="ann-symbol-0-step-1"`) {
+		t.Fatalf("numbered circle should not use <symbol> (sips breaks text-anchor under scaling): %q", svg)
+	}
+	if strings.Contains(svg, `dominant-baseline=`) || strings.Contains(svg, ` dy=`) {
+		t.Fatalf("dominant-baseline/dy should be absent: %q", svg)
 	}
 }
 

@@ -402,44 +402,36 @@ func renderBlur(idx int, ann annotation.Annotation, baseDataURL string, canvasWi
 }
 
 func renderNumberedCircle(idx int, ann annotation.Annotation) renderedAnnotation {
+	_ = idx
 	radius := ann.Radius
 	strokeW := ann.StrokeWidth
-	padding := strokeW / 2
-	viewSize := radius*2 + strokeW
-	center := radius + padding
 	fontSize := radius * 1.25
-	symbolID := symbolID(idx, ann.ID)
-	number := strconv.Itoa(ann.Number)
+	// Inline circle + text (no <symbol>+<use>): sips drifts text-anchor under
+	// symbol scaling, inline is immune.
+	//   Vertical: 0.35*fontSize ≈ cap-height midpoint offset below baseline
+	//            (sips ignores dominant-baseline and em-unit dy).
+	//   Horizontal: font-feature-settings='pnum' opts OUT of tabular figures,
+	//            letting "1" use its natural narrow advance so the glyph
+	//            centers in its own ink box. No per-digit correction needed.
+	textY := ann.Y + fontSize*0.35
 
-	def := fmt.Sprintf(
-		`<symbol id="%s" viewBox="0 0 %s %s">`+
-			`<circle cx="%s" cy="%s" r="%s" fill="%s" stroke="%s" stroke-width="%s" paint-order="stroke fill"/>`+
-			`<text class="sv-text" x="%s" y="%s" dy=".35em" font-size="%s" fill="%s" text-anchor="middle">%s</text>`+
-			`</symbol>`,
-		symbolID,
-		formatFloat(viewSize),
-		formatFloat(viewSize),
-		formatFloat(center),
-		formatFloat(center),
+	use := fmt.Sprintf(
+		`<circle cx="%s" cy="%s" r="%s" fill="%s" stroke="%s" stroke-width="%s" paint-order="stroke fill"/>`+
+			`<text class="sv-text" x="%s" y="%s" font-size="%s" fill="%s" text-anchor="middle" style="font-feature-settings:'pnum'">%s</text>`,
+		formatFloat(ann.X),
+		formatFloat(ann.Y),
 		formatFloat(radius),
 		quoteAttr(ann.StrokeColor),
 		quoteAttr(ann.OutlineColor),
 		formatFloat(strokeW),
-		formatFloat(center),
-		formatFloat(center),
+		formatFloat(ann.X),
+		formatFloat(textY),
 		formatFloat(fontSize),
 		quoteAttr(ann.TextColor),
-		escapeText(number),
-	)
-	use := fmt.Sprintf(`<use href="#%s" x="%s" y="%s" width="%s" height="%s"/>`,
-		symbolID,
-		formatFloat(ann.X-center),
-		formatFloat(ann.Y-center),
-		formatFloat(viewSize),
-		formatFloat(viewSize),
+		escapeText(strconv.Itoa(ann.Number)),
 	)
 
-	return renderedAnnotation{def: def, use: use}
+	return renderedAnnotation{def: "", use: use}
 }
 
 func polygonBounds(points [][2]float64) (float64, float64, float64, float64) {

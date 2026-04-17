@@ -1065,12 +1065,13 @@ function renderVectorAnnotations() {
       circle.setAttribute("paint-order", "stroke fill");
       group.appendChild(circle);
       const text = document.createElementNS(SVG_NS, "text");
+      const fontSize = r * 1.25;
       text.setAttribute("x", ann.x);
-      text.setAttribute("y", ann.y);
-      text.setAttribute("dy", ".35em");
+      text.setAttribute("y", ann.y + fontSize * 0.35);
       text.setAttribute("text-anchor", "middle");
-      text.setAttribute("font-size", r * 1.25);
+      text.setAttribute("font-size", fontSize);
       text.setAttribute("font-weight", "800");
+      text.style.fontFeatureSettings = "'pnum'";
       text.setAttribute("fill", ann.textColor || "#FFFFFF");
       text.textContent = String(ann.number ?? 0);
       group.appendChild(text);
