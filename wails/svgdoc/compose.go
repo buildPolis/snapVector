@@ -25,10 +25,6 @@ const (
 
 	baselineRectViewWidth  = 220.0
 	baselineRectViewHeight = 140.0
-	baselineRectInsetX     = 14.0
-	baselineRectInsetY     = 14.0
-	baselineRectWidth      = 192.0
-	baselineRectHeight     = 112.0
 	baselineRectRadius     = 18.0
 
 	baselineTextViewWidth   = 260.0
@@ -192,10 +188,6 @@ func renderArrow(idx int, ann annotation.Annotation) renderedAnnotation {
 
 func renderRectangle(idx int, ann annotation.Annotation) renderedAnnotation {
 	outlineWidth := ann.StrokeWidth + 6
-	insetX := ann.Width * (baselineRectInsetX / baselineRectViewWidth)
-	insetY := ann.Height * (baselineRectInsetY / baselineRectViewHeight)
-	rectWidth := ann.Width * (baselineRectWidth / baselineRectViewWidth)
-	rectHeight := ann.Height * (baselineRectHeight / baselineRectViewHeight)
 	radius := math.Min(
 		math.Min(ann.Width*(baselineRectRadius/baselineRectViewWidth), ann.Height*(baselineRectRadius/baselineRectViewHeight)),
 		math.Min(ann.Width, ann.Height)/2,
@@ -203,21 +195,17 @@ func renderRectangle(idx int, ann annotation.Annotation) renderedAnnotation {
 	symbolID := symbolID(idx, ann.ID)
 
 	def := fmt.Sprintf(
-		`<symbol id="%s" viewBox="0 0 %s %s"><rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="none" stroke="%s" stroke-width="%s" class="sv-vector"/><rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="none" stroke="%s" stroke-width="%s" class="sv-vector"/></symbol>`,
+		`<symbol id="%s" viewBox="0 0 %s %s" overflow="visible"><rect x="0" y="0" width="%s" height="%s" rx="%s" fill="none" stroke="%s" stroke-width="%s" class="sv-vector"/><rect x="0" y="0" width="%s" height="%s" rx="%s" fill="none" stroke="%s" stroke-width="%s" class="sv-vector"/></symbol>`,
 		symbolID,
 		formatFloat(ann.Width),
 		formatFloat(ann.Height),
-		formatFloat(insetX),
-		formatFloat(insetY),
-		formatFloat(rectWidth),
-		formatFloat(rectHeight),
+		formatFloat(ann.Width),
+		formatFloat(ann.Height),
 		formatFloat(radius),
 		quoteAttr(ann.OutlineColor),
 		formatFloat(outlineWidth),
-		formatFloat(insetX),
-		formatFloat(insetY),
-		formatFloat(rectWidth),
-		formatFloat(rectHeight),
+		formatFloat(ann.Width),
+		formatFloat(ann.Height),
 		formatFloat(radius),
 		quoteAttr(ann.StrokeColor),
 		formatFloat(ann.StrokeWidth),
@@ -236,13 +224,13 @@ func renderRectangle(idx int, ann annotation.Annotation) renderedAnnotation {
 func renderEllipse(idx int, ann annotation.Annotation) renderedAnnotation {
 	outlineWidth := ann.StrokeWidth + 6
 	symbolID := symbolID(idx, ann.ID)
-	cx := ann.Width * (110.0 / baselineRectViewWidth)
-	cy := ann.Height * (70.0 / baselineRectViewHeight)
-	rx := ann.Width * (92.0 / baselineRectViewWidth)
-	ry := ann.Height * (52.0 / baselineRectViewHeight)
+	cx := ann.Width / 2
+	cy := ann.Height / 2
+	rx := ann.Width / 2
+	ry := ann.Height / 2
 
 	def := fmt.Sprintf(
-		`<symbol id="%s" viewBox="0 0 %s %s"><ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="none" stroke="%s" stroke-width="%s" class="sv-vector"/><ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="none" stroke="%s" stroke-width="%s" class="sv-vector"/></symbol>`,
+		`<symbol id="%s" viewBox="0 0 %s %s" overflow="visible"><ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="none" stroke="%s" stroke-width="%s" class="sv-vector"/><ellipse cx="%s" cy="%s" rx="%s" ry="%s" fill="none" stroke="%s" stroke-width="%s" class="sv-vector"/></symbol>`,
 		symbolID,
 		formatFloat(ann.Width),
 		formatFloat(ann.Height),
@@ -361,10 +349,8 @@ func renderBlur(idx int, ann annotation.Annotation, baseDataURL string, canvasWi
 	if stdDeviation < 0.1 {
 		stdDeviation = 0.1
 	}
-	insetX := ann.Width * (baselineRectInsetX / baselineRectViewWidth)
-	insetY := ann.Height * (baselineRectInsetY / baselineRectViewHeight)
-	contentWidth := ann.Width * (baselineRectWidth / baselineRectViewWidth)
-	contentHeight := ann.Height * (baselineRectHeight / baselineRectViewHeight)
+	contentWidth := ann.Width
+	contentHeight := ann.Height
 	cornerRadius := math.Min(
 		math.Min(ann.CornerRadius, contentWidth/2),
 		contentHeight/2,
@@ -373,18 +359,14 @@ func renderBlur(idx int, ann annotation.Annotation, baseDataURL string, canvasWi
 	sy := ann.Height / baselineRectViewHeight
 
 	def := fmt.Sprintf(
-		`<symbol id="%s" viewBox="0 0 %s %s"><rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="#FFFFFF" opacity="0.14"/><clipPath id="%s"><rect x="%s" y="%s" width="%s" height="%s" rx="%s"/></clipPath><filter id="%s" x="-25%%" y="-25%%" width="150%%" height="150%%"><feGaussianBlur stdDeviation="%s"/></filter><image x="%s" y="%s" width="%s" height="%s" href="%s" clip-path="url(#%s)" filter="url(#%s)"/><rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="none" stroke="%s" stroke-width="%s"/><rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="none" stroke="%s" stroke-width="%s" stroke-dasharray="10 6"/></symbol>`,
+		`<symbol id="%s" viewBox="0 0 %s %s" overflow="visible"><rect x="0" y="0" width="%s" height="%s" rx="%s" fill="#FFFFFF" opacity="0.14"/><clipPath id="%s"><rect x="0" y="0" width="%s" height="%s" rx="%s"/></clipPath><filter id="%s" x="-25%%" y="-25%%" width="150%%" height="150%%"><feGaussianBlur stdDeviation="%s"/></filter><image x="%s" y="%s" width="%s" height="%s" href="%s" clip-path="url(#%s)" filter="url(#%s)"/><rect x="0" y="0" width="%s" height="%s" rx="%s" fill="none" stroke="%s" stroke-width="%s"/><rect x="0" y="0" width="%s" height="%s" rx="%s" fill="none" stroke="%s" stroke-width="%s" stroke-dasharray="10 6"/></symbol>`,
 		symbolID,
 		formatFloat(ann.Width),
 		formatFloat(ann.Height),
-		formatFloat(insetX),
-		formatFloat(insetY),
 		formatFloat(contentWidth),
 		formatFloat(contentHeight),
 		formatFloat(cornerRadius),
 		clipID,
-		formatFloat(insetX),
-		formatFloat(insetY),
 		formatFloat(contentWidth),
 		formatFloat(contentHeight),
 		formatFloat(cornerRadius),
@@ -397,15 +379,11 @@ func renderBlur(idx int, ann annotation.Annotation, baseDataURL string, canvasWi
 		quoteAttr(baseDataURL),
 		clipID,
 		filterID,
-		formatFloat(insetX),
-		formatFloat(insetY),
 		formatFloat(contentWidth),
 		formatFloat(contentHeight),
 		formatFloat(cornerRadius),
 		quoteAttr(ann.OutlineColor),
 		formatFloat(baselineBlurOutlineW),
-		formatFloat(insetX),
-		formatFloat(insetY),
 		formatFloat(contentWidth),
 		formatFloat(contentHeight),
 		formatFloat(cornerRadius),
@@ -424,44 +402,36 @@ func renderBlur(idx int, ann annotation.Annotation, baseDataURL string, canvasWi
 }
 
 func renderNumberedCircle(idx int, ann annotation.Annotation) renderedAnnotation {
+	_ = idx
 	radius := ann.Radius
 	strokeW := ann.StrokeWidth
-	padding := strokeW / 2
-	viewSize := radius*2 + strokeW
-	center := radius + padding
 	fontSize := radius * 1.25
-	symbolID := symbolID(idx, ann.ID)
-	number := strconv.Itoa(ann.Number)
+	// Inline circle + text (no <symbol>+<use>): sips drifts text-anchor under
+	// symbol scaling, inline is immune.
+	//   Vertical: 0.35*fontSize ≈ cap-height midpoint offset below baseline
+	//            (sips ignores dominant-baseline and em-unit dy).
+	//   Horizontal: font-feature-settings='pnum' opts OUT of tabular figures,
+	//            letting "1" use its natural narrow advance so the glyph
+	//            centers in its own ink box. No per-digit correction needed.
+	textY := ann.Y + fontSize*0.35
 
-	def := fmt.Sprintf(
-		`<symbol id="%s" viewBox="0 0 %s %s">`+
-			`<circle cx="%s" cy="%s" r="%s" fill="%s" stroke="%s" stroke-width="%s" paint-order="stroke fill"/>`+
-			`<text class="sv-text" x="%s" y="%s" font-size="%s" fill="%s" text-anchor="middle" dominant-baseline="central">%s</text>`+
-			`</symbol>`,
-		symbolID,
-		formatFloat(viewSize),
-		formatFloat(viewSize),
-		formatFloat(center),
-		formatFloat(center),
+	use := fmt.Sprintf(
+		`<circle cx="%s" cy="%s" r="%s" fill="%s" stroke="%s" stroke-width="%s" paint-order="stroke fill"/>`+
+			`<text class="sv-text" x="%s" y="%s" font-size="%s" fill="%s" text-anchor="middle" style="font-feature-settings:'pnum'">%s</text>`,
+		formatFloat(ann.X),
+		formatFloat(ann.Y),
 		formatFloat(radius),
 		quoteAttr(ann.StrokeColor),
 		quoteAttr(ann.OutlineColor),
 		formatFloat(strokeW),
-		formatFloat(center),
-		formatFloat(center),
+		formatFloat(ann.X),
+		formatFloat(textY),
 		formatFloat(fontSize),
 		quoteAttr(ann.TextColor),
-		escapeText(number),
-	)
-	use := fmt.Sprintf(`<use href="#%s" x="%s" y="%s" width="%s" height="%s"/>`,
-		symbolID,
-		formatFloat(ann.X-center),
-		formatFloat(ann.Y-center),
-		formatFloat(viewSize),
-		formatFloat(viewSize),
+		escapeText(strconv.Itoa(ann.Number)),
 	)
 
-	return renderedAnnotation{def: def, use: use}
+	return renderedAnnotation{def: "", use: use}
 }
 
 func polygonBounds(points [][2]float64) (float64, float64, float64, float64) {

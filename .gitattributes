@@ -5,6 +5,10 @@
 # macOS app bundle executable (Mach-O, ~8 MB per build)
 wails/build/bin/**/Contents/MacOS/snapvector filter=lfs diff=lfs merge=lfs -text
 
+# Embedded resvg rasterizer (macOS universal Mach-O, ~7 MB)
+# Used by exportdoc/convert_darwin.go via go:embed to replace sips.
+wails/exportdoc/bin/resvg filter=lfs diff=lfs merge=lfs -text
+
 # Future: Windows and Linux release binaries
 wails/build/bin/**/snapvector.exe filter=lfs diff=lfs merge=lfs -text
 wails/build/bin/snapvector filter=lfs diff=lfs merge=lfs -text
