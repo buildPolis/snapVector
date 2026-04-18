@@ -166,6 +166,68 @@ func TestComposeDisplayCapturesPlacesExternalAbovePrimary(t *testing.T) {
 	}
 }
 
+func TestComposeDisplayCapturesAlignsMixedDPIWithoutOverlap(t *testing.T) {
+	// Regression for issue #10: a Retina primary (ScaleFactor=2) next to a
+	// native 1x external must tile without overlap or gaps. The earlier
+	// implementation stored X/Y as per-display pixels, so mixed-DPI setups
+	// overlapped by the retina/native delta (or gapped when ordering
+	// flipped). Canvas is rendered at targetScale=max(ScaleFactor), which
+	// keeps the retina display at native pixels and upsamples the 1x
+	// external to match.
+	//
+	// Layout:
+	//   primary:  pt (0,0)  10×5 @ 2x → canvas px (0,0)  20×10
+	//   external: pt (10,0) 15×8 @ 1x → canvas px (20,0) 30×16 (upsampled)
+	//   canvas: 50×16 px.
+	primary := image.NewRGBA(image.Rect(0, 0, 20, 10))
+	fill(primary, color.RGBA{R: 255, A: 255})
+	external := image.NewRGBA(image.Rect(0, 0, 15, 8))
+	fill(external, color.RGBA{G: 255, A: 255})
+
+	raw, meta, err := composeDisplayCaptures([]displayCapture{
+		{
+			Display: darwinDisplay{Index: 1, X: 0, Y: 0, Width: 10, Height: 5, ScaleFactor: 2},
+			Image:   primary,
+		},
+		{
+			Display: darwinDisplay{Index: 2, X: 10, Y: 0, Width: 15, Height: 8, ScaleFactor: 1},
+			Image:   external,
+		},
+	})
+	if err != nil {
+		t.Fatalf("composeDisplayCaptures returned error: %v", err)
+	}
+	if meta.Width != 50 || meta.Height != 16 {
+		t.Fatalf("meta size = %dx%d, want 50x16", meta.Width, meta.Height)
+	}
+	if meta.X != 0 || meta.Y != 0 {
+		t.Fatalf("meta origin = (%d,%d), want (0,0)", meta.X, meta.Y)
+	}
+
+	img, err := png.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("decode composed png: %v", err)
+	}
+
+	cases := []struct {
+		x, y         int
+		wantR, wantG uint8
+		label        string
+	}{
+		{5, 5, 255, 0, "primary midpoint"},
+		{19, 5, 255, 0, "primary right edge (no gap)"},
+		{20, 5, 0, 255, "external left edge (no overlap)"},
+		{35, 8, 0, 255, "external midpoint"},
+	}
+	for _, tc := range cases {
+		got := color.RGBAModel.Convert(img.At(tc.x, tc.y)).(color.RGBA)
+		if got.R != tc.wantR || got.G != tc.wantG {
+			t.Fatalf("%s @(%d,%d) = %+v, want R=%d G=%d",
+				tc.label, tc.x, tc.y, got, tc.wantR, tc.wantG)
+		}
+	}
+}
+
 func TestCaptureAllDisplaysSmoke(t *testing.T) {
 	if testing.Short() {
 		t.Skip("requires screen recording permission")
