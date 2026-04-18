@@ -282,8 +282,13 @@ func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
 
 	canvas := image.NewRGBA(image.Rect(0, 0, maxX-minX, maxY-minY))
 	for _, capture := range captures {
+		// CGDisplayBounds uses top-left origin (Y grows down), matching image
+		// pixel space — so placement is a straight offset by minX/minY. The
+		// earlier `maxY - (Y + Height)` Cocoa-style flip inverted vertical
+		// layouts; horizontally-only arrangements masked the bug because Y was
+		// identical across displays.
 		x := capture.Display.X - minX
-		y := maxY - (capture.Display.Y + capture.Display.Height)
+		y := capture.Display.Y - minY
 		dest := image.Rect(x, y, x+capture.Display.Width, y+capture.Display.Height)
 		draw.Draw(canvas, dest, capture.Image, capture.Image.Bounds().Min, draw.Src)
 	}
