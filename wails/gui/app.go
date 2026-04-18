@@ -30,6 +30,7 @@ type App struct {
 	writeFile            func(string, []byte, os.FileMode) error
 	hideWindow           func(context.Context)
 	showWindow           func(context.Context)
+	emitEvent            func(context.Context, string, ...any)
 	preCaptureDelay      time.Duration
 	postCaptureHold      time.Duration
 	preferencesStore     *PreferencesStore
@@ -79,6 +80,7 @@ func NewApp() *App {
 		writeFile:           os.WriteFile,
 		hideWindow:          wailsruntime.WindowHide,
 		showWindow:          wailsruntime.WindowShow,
+		emitEvent:           wailsruntime.EventsEmit,
 		preCaptureDelay:     250 * time.Millisecond,
 		postCaptureHold:     120 * time.Millisecond,
 		preferencesStore:    NewPreferencesStore(),
@@ -550,4 +552,15 @@ func (a *App) ResetHotkeys() ([]Hotkey, error) {
 
 func (a *App) DefaultHotkeys() []Hotkey {
 	return DefaultHotkeys()
+}
+
+// forwardHotkeyAction relays a global hotkey action to the frontend so the
+// capture flow runs through the same code path as in-app shortcuts (which
+// populates canvas state and renders the result). The Go side can't render
+// the capture on its own — only the webview owns the document state.
+func (a *App) forwardHotkeyAction(action string) {
+	if a.emitEvent == nil {
+		return
+	}
+	a.emitEvent(a.ctx, "snapvector:hotkey", action)
 }

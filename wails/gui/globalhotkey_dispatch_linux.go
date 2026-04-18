@@ -44,29 +44,17 @@ func (a *App) reapplyGlobalHotkeys() {
 	a.startGlobalHotkeys()
 }
 
-// dispatchGlobalHotkeys reads from the listener's action channel and triggers
-// the corresponding capture method on the App.
+// dispatchGlobalHotkeys reads from the listener's action channel and forwards
+// each action to the frontend via a Wails event. The frontend owns the actual
+// capture flow so a single code path handles both in-app shortcuts and global
+// hotkeys; doing the capture in Go here would strand the resulting PNG
+// outside the webview state.
 func (a *App) dispatchGlobalHotkeys() {
 	if a.globalHotkeyListener == nil {
 		return
 	}
 	for action := range a.globalHotkeyListener.Actions() {
 		log.Printf("snapvector: dispatching global hotkey action: %s", action)
-		switch action {
-		case "capture.fullscreen":
-			if _, err := a.CaptureScreen(); err != nil {
-				log.Printf("snapvector: global hotkey capture fullscreen error: %v", err)
-			}
-		case "capture.region":
-			if _, err := a.CaptureRegion(); err != nil {
-				log.Printf("snapvector: global hotkey capture region error: %v", err)
-			}
-		case "capture.allDisplays":
-			if _, err := a.CaptureAllDisplays(); err != nil {
-				log.Printf("snapvector: global hotkey capture all displays error: %v", err)
-			}
-		default:
-			log.Printf("snapvector: unknown global hotkey action: %s", action)
-		}
+		a.forwardHotkeyAction(action)
 	}
 }

@@ -40,21 +40,6 @@ func (a *App) dispatchGlobalHotkeys() {
 	}
 	for action := range a.globalHotkeyListener.Actions() {
 		log.Printf("snapvector: dispatching global hotkey action: %s", action)
-		switch action {
-		case "capture.fullscreen":
-			if _, err := a.CaptureScreen(); err != nil {
-				log.Printf("snapvector: global hotkey capture fullscreen error: %v", err)
-			}
-		case "capture.region":
-			if _, err := a.CaptureRegion(); err != nil {
-				log.Printf("snapvector: global hotkey capture region error: %v", err)
-			}
-		case "capture.allDisplays":
-			if _, err := a.CaptureAllDisplays(); err != nil {
-				log.Printf("snapvector: global hotkey capture all displays error: %v", err)
-			}
-		default:
-			log.Printf("snapvector: unknown global hotkey action: %s", action)
-		}
+		a.forwardHotkeyAction(action)
 	}
 }
