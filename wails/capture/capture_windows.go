@@ -199,7 +199,12 @@ func displayIndexUnderCursor(n int) int {
 
 func encodePNG(img image.Image) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
+	// BestSpeed (zlib level 1) over DefaultCompression (level 6): 3–5× faster
+	// encode for ~20–30% larger PNG. The PNG is a transient IPC payload
+	// between Go and the webview; file size matters less than wall-clock
+	// latency to first render.
+	encoder := png.Encoder{CompressionLevel: png.BestSpeed}
+	if err := encoder.Encode(&buf, img); err != nil {
 		return nil, fmt.Errorf("encode png: %w", err)
 	}
 	return buf.Bytes(), nil

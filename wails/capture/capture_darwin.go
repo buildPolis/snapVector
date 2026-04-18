@@ -343,6 +343,7 @@ func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
 	canvasH := int(math.Round(float64(maxY-minY) * targetScale))
 	canvas := image.NewRGBA(image.Rect(0, 0, canvasW, canvasH))
 
+	drawStarted := time.Now()
 	for _, capture := range captures {
 		pxX := int(math.Round(float64(capture.Display.X-minX) * targetScale))
 		pxY := int(math.Round(float64(capture.Display.Y-minY) * targetScale))
@@ -353,17 +354,32 @@ func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
 		src := capture.Image
 		if sb := src.Bounds(); sb.Dx() != tw || sb.Dy() != th {
 			resized := image.NewRGBA(image.Rect(0, 0, tw, th))
-			xdraw.CatmullRom.Scale(resized, resized.Bounds(), src, sb, xdraw.Src, nil)
+			// ApproxBiLinear over CatmullRom: cubic is ~3× slower and the
+			// quality gain is invisible on a screen screenshot that gets
+			// zoomed out to fit the canvas. For the 1x→2x retina upsample
+			// this is also an integer ratio, so any resampler degenerates
+			// to nearest anyway.
+			xdraw.ApproxBiLinear.Scale(resized, resized.Bounds(), src, sb, xdraw.Src, nil)
 			src = resized
 		}
 
 		draw.Draw(canvas, dest, src, src.Bounds().Min, draw.Src)
 	}
+	log.Printf("snapvector capture: compose draw %dx%d px elapsed=%s",
+		canvasW, canvasH, time.Since(drawStarted).Round(time.Millisecond))
 
+	encodeStarted := time.Now()
 	var buf bytes.Buffer
-	if err := png.Encode(&buf, canvas); err != nil {
+	// BestSpeed (zlib level 1) over DefaultCompression (level 6): 3–5× faster
+	// encode for ~20–30% larger PNG. The composed PNG is a transient IPC
+	// payload between Go and the webview; file size matters less than
+	// wall-clock latency to first render.
+	encoder := png.Encoder{CompressionLevel: png.BestSpeed}
+	if err := encoder.Encode(&buf, canvas); err != nil {
 		return nil, Meta{}, fmt.Errorf("encode composed png: %w", err)
 	}
+	log.Printf("snapvector capture: compose encode %d bytes elapsed=%s",
+		buf.Len(), time.Since(encodeStarted).Round(time.Millisecond))
 
 	return PNG(buf.Bytes()), Meta{
 		DisplayID: "all",
