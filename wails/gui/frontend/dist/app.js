@@ -186,10 +186,29 @@ async function init() {
   await loadHotkeys();
   window.addEventListener("keydown", onRecorderKeydown, true); // capture phase
   window.addEventListener("keydown", onGlobalKeydown);
+  subscribeGlobalHotkeyEvents();
   // No auto-capture: the hide/show dance in the Go capture path would flash
   // the window right after it first appears. Let the user click a capture
   // button when they're ready.
   render();
+}
+
+function subscribeGlobalHotkeyEvents() {
+  // Global (OS-level) hotkeys fire in Go and are relayed here via EventsEmit —
+  // running them through hotkeyActions() keeps in-app and global hotkeys on
+  // one code path, so the captured PNG lands in the canvas state just like
+  // a button click would.
+  const runtime = window.runtime;
+  if (!runtime || typeof runtime.EventsOn !== "function") return;
+  runtime.EventsOn("snapvector:hotkey", (action) => {
+    if (typeof action !== "string" || !action) return;
+    const handler = hotkeyActions()[action];
+    if (!handler) {
+      console.warn("global hotkey event with unknown action:", action);
+      return;
+    }
+    handler();
+  });
 }
 
 function bindUI() {
