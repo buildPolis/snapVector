@@ -11,6 +11,7 @@ import (
 	"image/png"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	"syscall"
@@ -63,15 +64,44 @@ func (windowsCapturer) CaptureAllDisplays(ctx context.Context) (PNG, Meta, error
 		bounds image.Rectangle
 		img    *image.RGBA
 	}
-	captures := make([]displayCapture, 0, n)
 
+	// Capture displays in parallel; screenshot.CaptureDisplay is independent
+	// per index. Sequential loops on >2 displays added noticeable wall-clock
+	// delay; goroutines each write to their own results[i] so ordering and
+	// race-safety hold by construction.
+	type captureResult struct {
+		capture displayCapture
+		err     error
+	}
+	results := make([]captureResult, n)
+	var wg sync.WaitGroup
+	batchStarted := time.Now()
 	for i := 0; i < n; i++ {
-		bounds := screenshot.GetDisplayBounds(i)
-		img, err := screenshot.CaptureDisplay(i)
-		if err != nil {
-			return nil, Meta{}, fmt.Errorf("capture display %d: %w", i, err)
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			bounds := screenshot.GetDisplayBounds(i)
+			started := time.Now()
+			img, err := screenshot.CaptureDisplay(i)
+			log.Printf("snapvector capture: CaptureDisplay(%d) elapsed=%s err=%v",
+				i, time.Since(started).Round(time.Millisecond), err)
+			if err != nil {
+				results[i].err = fmt.Errorf("capture display %d: %w", i, err)
+				return
+			}
+			results[i].capture = displayCapture{bounds: bounds, img: img}
+		}(i)
+	}
+	wg.Wait()
+	log.Printf("snapvector capture: parallel capture of %d display(s) wall-clock elapsed=%s",
+		n, time.Since(batchStarted).Round(time.Millisecond))
+
+	captures := make([]displayCapture, 0, n)
+	for _, r := range results {
+		if r.err != nil {
+			return nil, Meta{}, r.err
 		}
-		captures = append(captures, displayCapture{bounds: bounds, img: img})
+		captures = append(captures, r.capture)
 	}
 
 	// Compute virtual bounding box.

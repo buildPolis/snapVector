@@ -135,11 +135,66 @@ static int snapvector_capture_display_png(
     *outLen = (int)len;
     return 0;
 }
+
+// Capture one display into a row-packed RGBA8 buffer. This skips the
+// ImageIO PNG encode/decode round-trip that snapvector_capture_display_png
+// pays for; for multi-display compose the encoded PNG is a throwaway since
+// composeDisplayCaptures tears it apart again into an image.RGBA anyway.
+// Return codes:
+//    0 = success, *outBuf populated with width*height*4 bytes of RGBA
+//        (premultiplied alpha, byte order R,G,B,A), caller must free(*outBuf)
+//   -1 = CGDisplayCreateImage returned NULL
+//   -2 = bitmap context alloc / draw failed
+static int snapvector_capture_display_rgba(
+    uint32_t displayID,
+    unsigned char** outBuf,
+    int* outW,
+    int* outH
+) {
+    CGImageRef img = sv_CGDisplayCreateImage(displayID);
+    if (!img) return -1;
+
+    size_t w = CGImageGetWidth(img);
+    size_t h = CGImageGetHeight(img);
+    size_t bytesPerRow = 4 * w;
+
+    CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+    if (!cs) { CGImageRelease(img); return -2; }
+
+    unsigned char* buf = (unsigned char*)calloc(bytesPerRow * h, 1);
+    if (!buf) {
+        CGColorSpaceRelease(cs);
+        CGImageRelease(img);
+        return -2;
+    }
+
+    // kCGImageAlphaPremultipliedLast + kCGBitmapByteOrder32Big = R,G,B,A byte
+    // order, which matches Go's image.RGBA pixel layout one-to-one.
+    CGContextRef ctx = CGBitmapContextCreate(
+        buf, w, h, 8, bytesPerRow, cs,
+        kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    CGColorSpaceRelease(cs);
+    if (!ctx) {
+        free(buf);
+        CGImageRelease(img);
+        return -2;
+    }
+
+    CGContextDrawImage(ctx, CGRectMake(0, 0, (CGFloat)w, (CGFloat)h), img);
+    CGContextRelease(ctx);
+    CGImageRelease(img);
+
+    *outBuf = buf;
+    *outW = (int)w;
+    *outH = (int)h;
+    return 0;
+}
 */
 import "C"
 
 import (
 	"fmt"
+	"image"
 	"math"
 	"unsafe"
 )
@@ -229,6 +284,37 @@ func cgCaptureDisplayPNG(id uint32) ([]byte, error) {
 		return nil, fmt.Errorf("CGDisplayCreateImage returned NULL (display=%d)", id)
 	case -2:
 		return nil, fmt.Errorf("PNG encoding failed (display=%d)", id)
+	default:
+		return nil, fmt.Errorf("unexpected capture rc=%d (display=%d)", rc, id)
+	}
+}
+
+// cgCaptureDisplayRGBA captures a display straight into Go's native
+// image.RGBA pixel layout (row-packed, R,G,B,A byte order, premultiplied
+// alpha). Used by the multi-display compose path: the intermediate PNG
+// encode/decode round-trip that cgCaptureDisplayPNG pays for is pure waste
+// when composeDisplayCaptures is going to decode right back to RGBA anyway.
+// The image shares the underlying C buffer only through the returned slice;
+// image.RGBA owns a copy so the caller does not need to free anything.
+func cgCaptureDisplayRGBA(id uint32) (*image.RGBA, error) {
+	var buf *C.uchar
+	var w, h C.int
+	rc := C.snapvector_capture_display_rgba(C.uint32_t(id), &buf, &w, &h)
+	switch rc {
+	case 0:
+		defer C.free(unsafe.Pointer(buf))
+		width, height := int(w), int(h)
+		stride := width * 4
+		pix := C.GoBytes(unsafe.Pointer(buf), C.int(stride*height))
+		return &image.RGBA{
+			Pix:    pix,
+			Stride: stride,
+			Rect:   image.Rect(0, 0, width, height),
+		}, nil
+	case -1:
+		return nil, fmt.Errorf("CGDisplayCreateImage returned NULL (display=%d)", id)
+	case -2:
+		return nil, fmt.Errorf("bitmap context create/draw failed (display=%d)", id)
 	default:
 		return nil, fmt.Errorf("unexpected capture rc=%d (display=%d)", rc, id)
 	}

@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	xdraw "golang.org/x/image/draw"
@@ -185,36 +186,68 @@ func captureAllDisplays(ctx context.Context, displays []darwinDisplay) (PNG, Met
 	}
 	_ = ctx // CG calls are synchronous and non-cancellable; ctx.Deadline is advisory.
 
-	captures := make([]displayCapture, 0, len(displays))
+	// Validate IDs up front so a bad input fails fast without spinning up
+	// goroutines that would just error out.
 	for _, display := range displays {
 		if display.cgDisplayID == 0 {
 			return nil, Meta{}, fmt.Errorf("display %d has no CGDisplayID (not from cgListDisplays)", display.Index)
 		}
-		started := time.Now()
-		raw, err := cgCaptureDisplayPNG(display.cgDisplayID)
-		log.Printf("snapvector capture: CGDisplayCreateImage id=%d index=%d -> elapsed=%s err=%v",
-			display.cgDisplayID, display.Index, time.Since(started).Round(time.Millisecond), err)
-		if err != nil {
+	}
+
+	// Capture displays in parallel AND bypass the ImageIO PNG encode/decode
+	// round-trip. cgCaptureDisplayRGBA returns native image.RGBA bytes
+	// directly from CoreGraphics, which composeDisplayCaptures consumes
+	// without further decoding. Earlier attempts that ran
+	// cgCaptureDisplayPNG in goroutines actually *regressed* latency because
+	// ImageIO's PNG encode is CPU-bound, so three parallel goroutines all
+	// fought for cores. Skipping that encode is what makes parallel capture
+	// net-positive: each goroutine is now just the window-server read plus
+	// a memcpy into Go's Pix slice.
+	type captureResult struct {
+		capture displayCapture
+		err     error
+	}
+	results := make([]captureResult, len(displays))
+	var wg sync.WaitGroup
+	batchStarted := time.Now()
+	for i, display := range displays {
+		wg.Add(1)
+		go func(i int, display darwinDisplay) {
+			defer wg.Done()
+			started := time.Now()
+			img, err := cgCaptureDisplayRGBA(display.cgDisplayID)
+			log.Printf("snapvector capture: CGDisplayCreateImage id=%d index=%d -> elapsed=%s err=%v",
+				display.cgDisplayID, display.Index, time.Since(started).Round(time.Millisecond), err)
+			if err != nil {
+				results[i].err = err
+				return
+			}
+			// Keep display.Width/Height in POINTS; the image retains its native
+			// backing pixel size via img.Bounds(). composeDisplayCaptures uses
+			// points for layout and resamples the image when its pixel
+			// dimensions differ from (points × targetScale).
+			results[i].capture = displayCapture{
+				Display: display,
+				Image:   img,
+			}
+		}(i, display)
+	}
+	wg.Wait()
+	log.Printf("snapvector capture: parallel RGBA capture of %d display(s) wall-clock elapsed=%s",
+		len(displays), time.Since(batchStarted).Round(time.Millisecond))
+
+	captures := make([]displayCapture, 0, len(displays))
+	for _, r := range results {
+		if r.err != nil {
 			if !cgPreflightScreenCapture() {
 				return nil, Meta{}, &PermissionDeniedError{
 					Platform: "darwin",
 					Stderr:   "CGPreflightScreenCaptureAccess returned false mid-capture",
 				}
 			}
-			return nil, Meta{}, err
+			return nil, Meta{}, r.err
 		}
-		img, err := png.Decode(bytes.NewReader(raw))
-		if err != nil {
-			return nil, Meta{}, fmt.Errorf("decode display %d png: %w", display.Index, err)
-		}
-		// Keep display.Width/Height in POINTS; the image retains its native
-		// backing pixel size via img.Bounds(). composeDisplayCaptures uses
-		// points for layout and resamples the image when its pixel dimensions
-		// differ from (points × targetScale).
-		captures = append(captures, displayCapture{
-			Display: display,
-			Image:   img,
-		})
+		captures = append(captures, r.capture)
 	}
 	return composeDisplayCaptures(captures)
 }
