@@ -10,11 +10,14 @@ import (
 	"image/draw"
 	"image/png"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	xdraw "golang.org/x/image/draw"
 )
 
 func NewPlatformCapturer() Capturer { return darwinCapturer{} }
@@ -204,8 +207,10 @@ func captureAllDisplays(ctx context.Context, displays []darwinDisplay) (PNG, Met
 		if err != nil {
 			return nil, Meta{}, fmt.Errorf("decode display %d png: %w", display.Index, err)
 		}
-		display.Width = img.Bounds().Dx()
-		display.Height = img.Bounds().Dy()
+		// Keep display.Width/Height in POINTS; the image retains its native
+		// backing pixel size via img.Bounds(). composeDisplayCaptures uses
+		// points for layout and resamples the image when its pixel dimensions
+		// differ from (points × targetScale).
 		captures = append(captures, displayCapture{
 			Display: display,
 			Image:   img,
@@ -245,10 +250,18 @@ func captureDisplay(ctx context.Context, display darwinDisplay) (PNG, Meta, erro
 		return nil, Meta{}, fmt.Errorf("decode capture png: %w", err)
 	}
 
+	// display.X/Y live in points (unified across displays); the single-display
+	// Meta contract has always been pixel-space, so multiply back by this
+	// display's own scale. There is no cross-display ambiguity here because
+	// only one display is in play.
+	scale := display.ScaleFactor
+	if scale <= 0 {
+		scale = 1
+	}
 	return PNG(raw), Meta{
 		DisplayID:   fmt.Sprintf("%d", display.Index),
-		X:           display.X,
-		Y:           display.Y,
+		X:           int(math.Round(float64(display.X) * scale)),
+		Y:           int(math.Round(float64(display.Y) * scale)),
 		Width:       cfg.Width,
 		Height:      cfg.Height,
 		ScaleFactor: display.ScaleFactor,
@@ -260,10 +273,17 @@ func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
 		return nil, Meta{}, fmt.Errorf("no display captures to compose")
 	}
 
+	// Layout is computed in POINTS (CGDisplayBounds' unified coord space).
+	// The canvas is rendered at targetScale = max(ScaleFactor) so the
+	// highest-DPI display keeps its native pixels intact and lower-DPI
+	// displays are upsampled to match. Using any single display's scale (as
+	// the earlier implementation did) left mixed-DPI layouts overlapping or
+	// gap-ridden depending on which display sat at the origin.
 	minX := captures[0].Display.X
 	minY := captures[0].Display.Y
 	maxX := captures[0].Display.X + captures[0].Display.Width
 	maxY := captures[0].Display.Y + captures[0].Display.Height
+	targetScale := captures[0].Display.ScaleFactor
 
 	for _, capture := range captures[1:] {
 		if capture.Display.X < minX {
@@ -275,22 +295,36 @@ func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
 		if right := capture.Display.X + capture.Display.Width; right > maxX {
 			maxX = right
 		}
-		if top := capture.Display.Y + capture.Display.Height; top > maxY {
-			maxY = top
+		if bot := capture.Display.Y + capture.Display.Height; bot > maxY {
+			maxY = bot
+		}
+		if s := capture.Display.ScaleFactor; s > targetScale {
+			targetScale = s
 		}
 	}
+	if targetScale <= 0 {
+		targetScale = 1
+	}
 
-	canvas := image.NewRGBA(image.Rect(0, 0, maxX-minX, maxY-minY))
+	canvasW := int(math.Round(float64(maxX-minX) * targetScale))
+	canvasH := int(math.Round(float64(maxY-minY) * targetScale))
+	canvas := image.NewRGBA(image.Rect(0, 0, canvasW, canvasH))
+
 	for _, capture := range captures {
-		// CGDisplayBounds uses top-left origin (Y grows down), matching image
-		// pixel space — so placement is a straight offset by minX/minY. The
-		// earlier `maxY - (Y + Height)` Cocoa-style flip inverted vertical
-		// layouts; horizontally-only arrangements masked the bug because Y was
-		// identical across displays.
-		x := capture.Display.X - minX
-		y := capture.Display.Y - minY
-		dest := image.Rect(x, y, x+capture.Display.Width, y+capture.Display.Height)
-		draw.Draw(canvas, dest, capture.Image, capture.Image.Bounds().Min, draw.Src)
+		pxX := int(math.Round(float64(capture.Display.X-minX) * targetScale))
+		pxY := int(math.Round(float64(capture.Display.Y-minY) * targetScale))
+		tw := int(math.Round(float64(capture.Display.Width) * targetScale))
+		th := int(math.Round(float64(capture.Display.Height) * targetScale))
+		dest := image.Rect(pxX, pxY, pxX+tw, pxY+th)
+
+		src := capture.Image
+		if sb := src.Bounds(); sb.Dx() != tw || sb.Dy() != th {
+			resized := image.NewRGBA(image.Rect(0, 0, tw, th))
+			xdraw.CatmullRom.Scale(resized, resized.Bounds(), src, sb, xdraw.Src, nil)
+			src = resized
+		}
+
+		draw.Draw(canvas, dest, src, src.Bounds().Min, draw.Src)
 	}
 
 	var buf bytes.Buffer
@@ -300,10 +334,10 @@ func composeDisplayCaptures(captures []displayCapture) (PNG, Meta, error) {
 
 	return PNG(buf.Bytes()), Meta{
 		DisplayID: "all",
-		X:         minX,
-		Y:         minY,
-		Width:     canvas.Bounds().Dx(),
-		Height:    canvas.Bounds().Dy(),
+		X:         int(math.Round(float64(minX) * targetScale)),
+		Y:         int(math.Round(float64(minY) * targetScale)),
+		Width:     canvasW,
+		Height:    canvasH,
 	}, nil
 }
 

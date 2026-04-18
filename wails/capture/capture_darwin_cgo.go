@@ -193,12 +193,19 @@ func cgListDisplays() ([]darwinDisplay, error) {
 		contains := cx >= float64(px) && cx < float64(px)+float64(pw) &&
 			cy >= float64(py) && cy < float64(py)+float64(ph)
 
+		// Store X/Y/Width/Height in POINTS (CGDisplayBounds' unified global
+		// coord space). The earlier form multiplied by each display's own
+		// scale to produce "per-display pixel" values — in mixed-DPI setups
+		// (Retina + 1x external, or 150%/200% scale choice) the different
+		// scales produced overlapping or gap-ridden layouts during compose.
+		// Keeping points means all displays live in one coordinate system;
+		// compose pins a shared canvas pixel density via targetScale.
 		displays = append(displays, darwinDisplay{
 			Index:          i + 1,
-			X:              int(math.Round(float64(px) * scale)),
-			Y:              int(math.Round(float64(py) * scale)),
-			Width:          int(pixW),
-			Height:         int(pixH),
+			X:              int(math.Round(float64(px))),
+			Y:              int(math.Round(float64(py))),
+			Width:          int(math.Round(float64(pw))),
+			Height:         int(math.Round(float64(ph))),
 			ScaleFactor:    scale,
 			ContainsCursor: contains,
 			cgDisplayID:    uint32(ids[i]),
