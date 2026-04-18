@@ -73,19 +73,23 @@ func TestDisplayUnderCursorChoosesContainingDisplay(t *testing.T) {
 }
 
 func TestComposeDisplayCapturesUsesGlobalBackingCoordinates(t *testing.T) {
-	left := image.NewRGBA(image.Rect(0, 0, 4, 2))
-	fill(left, color.RGBA{R: 255, A: 255})
-	right := image.NewRGBA(image.Rect(0, 0, 6, 3))
-	fill(right, color.RGBA{G: 255, A: 255})
+	// CGDisplayBounds is top-left origin, so a display at Y=0 sits at the top
+	// of the composed canvas and a display at a higher Y sits below it. The
+	// earlier implementation inverted this by applying a Cocoa-style Y flip;
+	// this fixture pins the corrected ordering.
+	top := image.NewRGBA(image.Rect(0, 0, 4, 2))
+	fill(top, color.RGBA{R: 255, A: 255})
+	bottom := image.NewRGBA(image.Rect(0, 0, 6, 3))
+	fill(bottom, color.RGBA{G: 255, A: 255})
 
 	raw, meta, err := composeDisplayCaptures([]displayCapture{
 		{
 			Display: darwinDisplay{Index: 1, X: 0, Y: 0, Width: 4, Height: 2},
-			Image:   left,
+			Image:   top,
 		},
 		{
 			Display: darwinDisplay{Index: 2, X: -2, Y: 2, Width: 6, Height: 3},
-			Image:   right,
+			Image:   bottom,
 		},
 	})
 	if err != nil {
@@ -103,11 +107,62 @@ func TestComposeDisplayCapturesUsesGlobalBackingCoordinates(t *testing.T) {
 		t.Fatalf("decode composed png: %v", err)
 	}
 
-	if got := color.RGBAModel.Convert(img.At(0, 0)).(color.RGBA); got.G != 255 {
-		t.Fatalf("top-left pixel = %+v, want green display at top", got)
+	// Canvas layout after normalising to (minX=-2, minY=0):
+	//   rows 0-1, cols 2-5 : red (top display at Y=0)
+	//   rows 2-4, cols 0-5 : green (bottom display at Y=2)
+	//   rows 0-1, cols 0-1 : empty (no display covers this region)
+	if got := color.RGBAModel.Convert(img.At(3, 0)).(color.RGBA); got.R != 255 {
+		t.Fatalf("top display pixel = %+v, want red at top", got)
+	}
+	if got := color.RGBAModel.Convert(img.At(0, 4)).(color.RGBA); got.G != 255 {
+		t.Fatalf("bottom display pixel = %+v, want green at bottom", got)
+	}
+	if got := color.RGBAModel.Convert(img.At(0, 0)).(color.RGBA); got.R != 0 || got.G != 0 || got.B != 0 || got.A != 0 {
+		t.Fatalf("uncovered pixel = %+v, want transparent", got)
+	}
+}
+
+func TestComposeDisplayCapturesPlacesExternalAbovePrimary(t *testing.T) {
+	// Concrete regression for issue #8: MacBook primary at (0, 0) with an
+	// external monitor physically above it (Y is negative under top-left
+	// origin). Before the fix the external landed at the bottom of the
+	// composed image; after the fix it sits at the top.
+	external := image.NewRGBA(image.Rect(0, 0, 4, 3))
+	fill(external, color.RGBA{B: 255, A: 255})
+	primary := image.NewRGBA(image.Rect(0, 0, 4, 2))
+	fill(primary, color.RGBA{R: 255, A: 255})
+
+	raw, meta, err := composeDisplayCaptures([]displayCapture{
+		{
+			Display: darwinDisplay{Index: 1, X: 0, Y: 0, Width: 4, Height: 2},
+			Image:   primary,
+		},
+		{
+			Display: darwinDisplay{Index: 2, X: 0, Y: -3, Width: 4, Height: 3},
+			Image:   external,
+		},
+	})
+	if err != nil {
+		t.Fatalf("composeDisplayCaptures returned error: %v", err)
+	}
+	if meta.X != 0 || meta.Y != -3 {
+		t.Fatalf("meta origin = (%d,%d), want (0,-3)", meta.X, meta.Y)
+	}
+	if meta.Width != 4 || meta.Height != 5 {
+		t.Fatalf("meta size = %dx%d, want 4x5", meta.Width, meta.Height)
+	}
+
+	img, err := png.Decode(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("decode composed png: %v", err)
+	}
+
+	// Top rows (0-2) must be the external (blue); bottom rows (3-4) primary (red).
+	if got := color.RGBAModel.Convert(img.At(2, 1)).(color.RGBA); got.B != 255 {
+		t.Fatalf("external band pixel = %+v, want blue (external at top)", got)
 	}
 	if got := color.RGBAModel.Convert(img.At(2, 4)).(color.RGBA); got.R != 255 {
-		t.Fatalf("bottom region pixel = %+v, want red display at bottom", got)
+		t.Fatalf("primary band pixel = %+v, want red (primary at bottom)", got)
 	}
 }
 
